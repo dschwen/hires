@@ -21,8 +21,50 @@ body { background-color: black;}
     </div>
   </div>
 <script>
+// block data
+class Block {
+  constructor(copy) {
+    if (copy) {
+      this.fg = copy.fg;
+      this.bg = copy.bg;
+      this.pix = Array.apply(null, Array(8)).map((x,i) => {return copy.pix[i];});
+    } else {
+      this.fg = 1;
+      this.bg = 0;
+      this.pix = Array.apply(null, Array(8)).map(() => {return 0;});
+    }
+  }
+
+  clear() {
+    this.fg = 1;
+    this.bg = 0;
+    this.pix.fill(0);
+  }
+
+  random() {
+    this.fg = Math.floor(Math.random() * 16);
+    this.bg = Math.floor(Math.random() * 16);
+    this.pix = Array.apply(null, Array(8)).map(() => {return Math.floor(Math.random() * 256);;});
+  }
+}
+
 // size of canvas in blocks
 var nbx = 320/8, nby = 200/8;
+
+// image data
+var image;
+
+// restore image or set up new empty image
+(function() {
+  var data = window.localStorage.getItem('current_image');
+  if (data) {
+    // restore from localStorage
+    restoreImage(data);
+  } else {
+    // new empty image
+    image = Array.apply(null, Array(nbx * nby)).map(() => {return new Block;});
+  }
+})();
 
 // html canvases
 var backbuffer = document.getElementById('backbuffer');
@@ -63,38 +105,8 @@ palette = [
 // current fg color index for drawing
 var fg = 1;
 
-// block data
-class Block {
-  constructor(copy) {
-    if (copy) {
-      this.fg = copy.fg;
-      this.bg = copy.bg;
-      this.pix = Array.apply(null, Array(8)).map((x,i) => {return copy.pix[i];});
-    } else {
-      this.fg = 1;
-      this.bg = 0;
-      this.pix = Array.apply(null, Array(8)).map(() => {return 0;});
-    }
-  }
-
-  clear() {
-    this.fg = 1;
-    this.bg = 0;
-    this.pix.fill(0);
-  }
-
-  random() {
-    this.fg = Math.floor(Math.random() * 16);
-    this.bg = Math.floor(Math.random() * 16);
-    this.pix = Array.apply(null, Array(8)).map(() => {return Math.floor(Math.random() * 256);;});
-  }
-}
-
 // preview block
 var preview;
-
-// image data
-var image = Array.apply(null, Array(nbx * nby)).map(() => {return new Block;});
 
 // draw a single Block
 function drawBlock(bx, by, block)
@@ -103,7 +115,7 @@ function drawBlock(bx, by, block)
   for (bit = 7; bit >= 0; --bit)
     for (byte = 0; byte < 8; ++byte)
     {
-      is_set = block.pix[byte] & (1<<bit);
+      is_set = block.pix[byte] & (1 << bit);
       if (is_set)
         col = block.fg;
       else
@@ -115,7 +127,6 @@ function drawBlock(bx, by, block)
       bbuf.data[idx++] = 255;
     }
 
-  console.log(bx * 8, by * 8);
   ctx.putImageData(bbuf, bx * 8, (nby - by - 1) * 8);
 }
 
@@ -183,16 +194,16 @@ function redraw()
 // serialize image for exporting and emergency save
 function serializeImage()
 {
-  var size = nbx * nby * 9 + 2;
+  var i, j, blocks = nbx * nby;
+  var size =  blocks * 9 + 2;
   buf = new Uint8Array(new ArrayBuffer(size));
   // header (width and height)
   buf[0] = nbx;
   buf[1] = nby;
 
   // serialize fg/bg data
-  var i, j, blocks = bx*by;
   for (i = 0; i < blocks; ++i)
-    buf[i+2] = image[i].fg + image[i].bg << 4;
+    buf[i+2] = image[i].fg + (image[i].bg << 4);
 
   // serialize bitmap data
   for (i = 0; i < blocks; ++i)
@@ -200,6 +211,56 @@ function serializeImage()
       buf[i*8+j+blocks+2] = image[i].pix[j];
 
   return window.btoa(buf);
+}
+
+// serialize image for exporting and emergency save
+function restoreImage(data)
+{
+  var buf = new Uint8Array(JSON.parse('[' + window.atob(data) + ']'));
+  // header (width and height)
+  nbx = buf[0];
+  nby = buf[1];
+
+  var i, j, blocks = nbx * nby;
+  var size =  blocks * 9 + 2;
+  if (buf.length != size) {
+    alert("Corrupt image data");
+  }
+  image = Array.apply(null, Array(blocks)).map(() => {return new Block;});
+
+  // unserialize fg/bg data
+  for (i = 0; i < blocks; ++i) {
+    image[i].fg = buf[i+2] % 16
+    image[i].bg = buf[i+2] >> 4;
+  }
+
+  // unserialize bitmap data
+  for (i = 0; i < blocks; ++i)
+    for (j = 0; j < 8; ++j)
+      image[i].pix[j] = buf[i*8+j+blocks+2];
+}
+
+// undo data
+var undodata = [];
+var undopointer = 0;
+
+function undo() {
+  if (undopointer > 0) {
+    undopointer--;
+    restoreImage(undodata[undopointer]);
+  }
+}
+function redo() {
+  if (undopointer < undodata.length) {
+    undopointer++;
+    restoreImage(undodata[undopointer]);
+  }
+}
+function saveHistory() {
+  undodata[undopointer] = serializeImage();
+  undopointer++;
+  // remove redo steps beyond this state
+  undodata.splice(undopointer);
 }
 
 // zoom factor
@@ -294,12 +355,20 @@ document.addEventListener('keydown', (e) => {
     updateFrontBuffer();
   }
   else if (e.key === 'C') {
-    if (confirm("Deleting canvas content.")) {
-      clear();
-      redraw();
-    }
+    saveHistory();
+    clear();
+    redraw();
+  }
+  else if (e.key === 'u') {
+    undo();
+    redraw();
+  }
+  else if (e.key === 'y') {
+    redo();
+    redraw();
   }
   else if (e.key === 'R') {
+    saveHistory();
     randomize();
     redraw();
   }
@@ -347,7 +416,7 @@ canvas.addEventListener('mousemove', (e) => {
 
   if (tool === 0) { // pixel draw
     if (e.buttons === 0) { // preview
-      console.log(pxn, pyn);
+      // console.log(pxn, pyn);
     }
   }
   e.preventDefault();
@@ -363,7 +432,7 @@ canvas.addEventListener('contextmenu', function(evt) {
 }, false);
 
 // add system events
-document.addEventListener('unload', (e) => {
+window.addEventListener('beforeunload', (e) => {
   window.localStorage.setItem('current_image', serializeImage());
 });
 
