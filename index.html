@@ -1,32 +1,44 @@
 <html>
 <head>
 <style>
-#viewport { overflow:scroll; }
-#canvas {}
-#debug { color:white}
+body { margin: 0; padding: 0; }
+#viewport { overflow: scroll; width: 95% }
+#backbuffer { display: none; }
+#canvas { clear: both; }
+
+#debug { color:white; font-size: 80%; width: 48%; background-color: #333}
+#debug2 { color:white; width: 48%; float: right; background-color: #333}
 body { background-color: black;}
 </style>
 </head>
 <body>
   <div id="viewport">
+    <canvas id="backbuffer"></canvas>
     <canvas id="canvas"></canvas>
-    <span id="debug"></span>
-  <div>
-</body>
+    <div>
+      <div id="debug2"></div>
+      <div id="debug"></div>
+    </div>
+  </div>
 <script>
 // size of canvas in blocks
 var nbx = 320/8, nby = 200/8;
 
-// html canvas
+// html canvases
+var backbuffer = document.getElementById('backbuffer');
 var canvas = document.getElementById('canvas');
-canvas.width = nbx * 8;
-canvas.height = nby * 8;
+backbuffer.width = nbx * 8;
+backbuffer.height = nby * 8;
 
-// rendering context
-var ctx = canvas.getContext('2d');
+// rendering contexts
+var ctx = backbuffer.getContext('2d');
+var frontctx = canvas.getContext('2d');
 
 // rendering block buffer
 var bbuf = ctx.createImageData(8, 8);
+
+// draw gridlines?
+var grid = true;
 
 // palette
 palette = [
@@ -59,9 +71,12 @@ class Block {
       this.bg = copy.bg;
       this.pix = Array.apply(null, Array(8)).map((x,i) => {return copy.pix[i];});
     } else {
-      this.fg = 1;
-      this.bg = 0;
-      this.pix = Array.apply(null, Array(8)).map(() => {return 0;});
+      this.fg = Math.floor(Math.random() * 16);
+      this.bg = Math.floor(Math.random() * 16);
+      this.pix = Array.apply(null, Array(8)).map(() => {return Math.floor(Math.random() * 256);;});
+      // this.fg = 1;
+      // this.bg = 0;
+      // this.pix = Array.apply(null, Array(8)).map(() => {return 0;});
     }
   }
 }
@@ -85,13 +100,48 @@ function drawBlock(bx, by, block)
       else
         col = block.bg;
 
-      bbuf[idx++] = palette[col].red;
-      bbuf[idx++] = palette[col].green;
-      bbuf[idx++] = palette[col].blue;
-      bbuf[idx++] = 255;
+      bbuf.data[idx++] = palette[col].red;
+      bbuf.data[idx++] = palette[col].green;
+      bbuf.data[idx++] = palette[col].blue;
+      bbuf.data[idx++] = 255;
     }
 
+  console.log(bx * 8, by * 8);
   ctx.putImageData(bbuf, bx * 8, by * 8);
+}
+
+// update front buffer
+function updateFrontBuffer()
+{
+  // upscale without interpolation
+  frontctx.imageSmoothingEnabled = false;
+  frontctx.drawImage(backbuffer, 0, 0, backbuffer.width, backbuffer.height, 0, 0, canvas.width, canvas.height);
+
+  // draw gridlines
+  if (drawgrid) {
+    var space = 8 * (1 << zoom);
+    var bx, by;
+
+    frontctx.lineWidth = 0.5;
+    for (bx = 0; bx < nbx; ++bx) {
+      frontctx.beginPath();
+      frontctx.moveTo(bx * space, 0)
+      frontctx.lineTo(bx * space, (nbx+1) * space);
+      frontctx.strokeStyle = 'white';
+      frontctx.stroke();
+      frontctx.strokeStyle = 'black';
+      frontctx.stroke();
+    }
+    for (by=0; by<nbx; ++by) {
+      frontctx.beginPath();
+      frontctx.moveTo(0, by * space)
+      frontctx.lineTo((nbx+1) * space, by * space);
+      frontctx.strokeStyle = 'white';
+      frontctx.stroke();
+      frontctx.strokeStyle = 'black';
+      frontctx.stroke();
+    }
+  }
 }
 
 // redraw image
@@ -101,13 +151,19 @@ function redraw()
   for (by = 0; by < nby; ++by)
     for (bx = 0; bx < nbx; ++bx)
       drawBlock(bx, by, image[bx + by * nbx]);
+  updateFrontBuffer();
 }
 
 // zoom factor
-var zoom = 0
+var zoom;
 function setZoom(z)
 {
-
+  if (zoom !== z) {
+    zoom = z;
+    canvas.width = backbuffer.width * (1 << zoom);
+    canvas.height = backbuffer.height * (1 << zoom);
+    updateFrontBuffer();
+  }
 }
 
 // add keyboard event listener
@@ -120,17 +176,118 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// add mouse listeners
+// debug events
 var dspan = document.getElementById("debug");
+var dspan2 = document.getElementById("debug2");
+var estat = {};
+function filterHostObject(e)
+{
+  var o = {}, t, a, i, key;
+
+  if (e === null || e === undefined)
+    return e;
+
+  for (key in e) {
+    if (e[key] instanceof Node) {
+      o[key] = '((Node))';
+    }
+    else if (e[key] instanceof Window) {
+      o[key] = '((Window))';
+    }
+    else if (e[key] instanceof Function) {
+      o[key] = '((Function))';
+    }
+    else {
+      t = typeof e[key];
+      if (t==='number' || t==='string' || t==='boolean' ) {
+        o[key] = e[key]
+      }
+      else if (t==='object') {
+        o[key] = filterHostObject(e[key]);
+      }
+      else if (t==='array') {
+        o[key] = [];
+        a = filterHostObject(e[key])
+        for (i in a)
+          o[i] = a[i];
+      }
+      else {
+        o[key] = '(' + t + ')';
+      }
+    }
+  }
+  return o;
+}
+function printEvent(e)
+{
+  dspan.innerText = JSON.stringify(filterHostObject(e), (k,v) => {return v;}, ' ');
+  var n = estat[e.type] || 0;
+  estat[e.type] = n + 1;
+  dspan2.innerText = JSON.stringify(estat, (k,v) => {return v;}, ' ');
+}
+
+// pixel coordinates
+var px, py;
+
+// current tool
+var tool = 0;
+
+// dragging the mouse?
+var dragging = false;
+
+// block list to restore
+var restore = [];
+function restoreBlocks()
+{
+  var i;
+  for (i=0; i<restore.length; ++i)
+    drawBlock(restore[i].x, restore[i].y, image[restore[i].x + restore[i].y * nbx]);
+}
+
+// add mouse listeners
 canvas.addEventListener('mousedown', (e) => {
-  console.log(e);
+  dragging = true;
+  e.preventDefault();
+  e.stopPropagation();
+});
+canvas.addEventListener('touchmove', (e) => {
+  printEvent(e);
+  e.preventDefault();
+  e.stopPropagation();
+});
+canvas.addEventListener('touchstart', (e) => {
+  printEvent(e);
+  e.preventDefault();
+  e.stopPropagation();
+});
+canvas.addEventListener('touchend', (e) => {
+  printEvent(e);
+  e.preventDefault();
+  e.stopPropagation();
 });
 canvas.addEventListener('mousemove', (e) => {
-  dspan.innerText = e.buttons;
+  if (tool === 0) { // pixel draw
+    if (e.buttons === 0) {
+
+    }
+  }
+  e.preventDefault();
+  e.stopPropagation();
 });
 document.addEventListener('mouseup', (e) => {
-  console.log(e);
+  dragging = false;
+  e.preventDefault();
+  e.stopPropagation();
+});
+canvas.addEventListener('contextmenu', function(evt) {
+  evt.preventDefault();
+}, false);
+
+document.addEventListener('keydown', (e) => {
+
 });
 
+// redraw();
 </script>
+</body>
 </html>
