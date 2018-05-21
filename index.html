@@ -3,12 +3,14 @@
 <style>
 #viewport { overflow:scroll; }
 #canvas {}
+#debug { color:white}
 body { background-color: black;}
 </style>
 </head>
 <body>
   <div id="viewport">
     <canvas id="canvas"></canvas>
+    <span id="debug"></span>
   <div>
 </body>
 <script>
@@ -46,6 +48,9 @@ palette = [
     { "red": 149, "green": 149, "blue": 149, "name": "light grey"  }
 ];
 
+// current fg color index for drawing
+var fg = 1;
+
 // block data
 class Block {
   constructor(copy) {
@@ -70,7 +75,23 @@ var image = Array.apply(null, Array(nbx * nby)).map(() => {return new Block;});
 // draw a single Block
 function drawBlock(bx, by, block)
 {
+  var byte, bit, idx = 0, col;
+  for (bit = 7; bit >= 0; --bit)
+    for (byte = 0; byte < 8; ++byte)
+    {
+      is_set = block.pix[byte] & (1<<bit);
+      if (is_set)
+        col = block.fg;
+      else
+        col = block.bg;
 
+      bbuf[idx++] = palette[col].red;
+      bbuf[idx++] = palette[col].green;
+      bbuf[idx++] = palette[col].blue;
+      bbuf[idx++] = 255;
+    }
+
+  ctx.putImageData(bbuf, bx * 8, by * 8);
 }
 
 // redraw image
@@ -88,6 +109,28 @@ function setZoom(z)
 {
 
 }
+
+// add keyboard event listener
+document.addEventListener('keydown', (e) => {
+  if (e.keyCode >= 48 && e.keyCode < 56)
+  {
+    fg = e.keyCode - 48;
+    if (e.shiftKey)
+      fg += 8;
+  }
+});
+
+// add mouse listeners
+var dspan = document.getElementById("debug");
+canvas.addEventListener('mousedown', (e) => {
+  console.log(e);
+});
+canvas.addEventListener('mousemove', (e) => {
+  dspan.innerText = e.buttons;
+});
+document.addEventListener('mouseup', (e) => {
+  console.log(e);
+});
 
 </script>
 </html>
