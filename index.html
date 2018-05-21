@@ -1,0 +1,93 @@
+<html>
+<head>
+<style>
+#viewport { overflow:scroll; }
+#canvas {}
+body { background-color: black;}
+</style>
+</head>
+<body>
+  <div id="viewport">
+    <canvas id="canvas"></canvas>
+  <div>
+</body>
+<script>
+// size of canvas in blocks
+var nbx = 320/8, nby = 200/8;
+
+// html canvas
+var canvas = document.getElementById('canvas');
+canvas.width = nbx * 8;
+canvas.height = nby * 8;
+
+// rendering context
+var ctx = canvas.getContext('2d');
+
+// rendering block buffer
+var bbuf = ctx.createImageData(8, 8);
+
+// palette
+palette = [
+    { "red": 0,   "green": 0,   "blue": 0,   "name": "black"       },
+    { "red": 255, "green": 255, "blue": 255, "name": "white"       },
+    { "red": 104, "green": 55,  "blue": 43,  "name": "red"         },
+    { "red": 112, "green": 164, "blue": 178, "name": "cyan"        },
+    { "red": 111, "green": 61,  "blue": 134, "name": "purple"      },
+    { "red": 88,  "green": 141, "blue": 67,  "name": "green"       },
+    { "red": 53,  "green": 40,  "blue": 121, "name": "blue"        },
+    { "red": 184, "green": 199, "blue": 111, "name": "yellow"      },
+    { "red": 111, "green": 79,  "blue": 37,  "name": "orange"      },
+    { "red": 67,  "green": 57,  "blue": 0,   "name": "brown"       },
+    { "red": 154, "green": 103, "blue": 89,  "name": "light red"   },
+    { "red": 68,  "green": 68,  "blue": 68,  "name": "dark grey"   },
+    { "red": 108, "green": 108, "blue": 108, "name": "grey"        },
+    { "red": 154, "green": 210, "blue": 132, "name": "light green" },
+    { "red": 108, "green": 94,  "blue": 181, "name": "light blue"  },
+    { "red": 149, "green": 149, "blue": 149, "name": "light grey"  }
+];
+
+// block data
+class Block {
+  constructor(copy) {
+    if (copy) {
+      this.fg = copy.fg;
+      this.bg = copy.bg;
+      this.pix = Array.apply(null, Array(8)).map((x,i) => {return copy.pix[i];});
+    } else {
+      this.fg = 1;
+      this.bg = 0;
+      this.pix = Array.apply(null, Array(8)).map(() => {return 0;});
+    }
+  }
+}
+
+// preview block
+var preview;
+
+// image data
+var image = Array.apply(null, Array(nbx * nby)).map(() => {return new Block;});
+
+// draw a single Block
+function drawBlock(bx, by, block)
+{
+
+}
+
+// redraw image
+function redraw()
+{
+  var bx, by;
+  for (by = 0; by < nby; ++by)
+    for (bx = 0; bx < nbx; ++bx)
+      drawBlock(bx, by, image[bx + by * nbx]);
+}
+
+// zoom factor
+var zoom = 0
+function setZoom(z)
+{
+
+}
+
+</script>
+</html>
