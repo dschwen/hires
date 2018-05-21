@@ -4,7 +4,7 @@
 body { margin: 0; padding: 0; }
 #viewport { overflow: scroll; width: 95% }
 #backbuffer { display: none; }
-#canvas { clear: both; }
+#canvas { clear: both; padding: 0 }
 
 #debug { color:white; font-size: 80%; width: 48%; background-color: #333}
 #debug2 { color:white; width: 48%; float: right; background-color: #333}
@@ -71,13 +71,22 @@ class Block {
       this.bg = copy.bg;
       this.pix = Array.apply(null, Array(8)).map((x,i) => {return copy.pix[i];});
     } else {
-      this.fg = Math.floor(Math.random() * 16);
-      this.bg = Math.floor(Math.random() * 16);
-      this.pix = Array.apply(null, Array(8)).map(() => {return Math.floor(Math.random() * 256);;});
-      // this.fg = 1;
-      // this.bg = 0;
-      // this.pix = Array.apply(null, Array(8)).map(() => {return 0;});
+      this.fg = 1;
+      this.bg = 0;
+      this.pix = Array.apply(null, Array(8)).map(() => {return 0;});
     }
+  }
+
+  clear() {
+    this.fg = 1;
+    this.bg = 0;
+    this.pix.fill(0);
+  }
+
+  random() {
+    this.fg = Math.floor(Math.random() * 16);
+    this.bg = Math.floor(Math.random() * 16);
+    this.pix = Array.apply(null, Array(8)).map(() => {return Math.floor(Math.random() * 256);;});
   }
 }
 
@@ -107,7 +116,7 @@ function drawBlock(bx, by, block)
     }
 
   console.log(bx * 8, by * 8);
-  ctx.putImageData(bbuf, bx * 8, by * 8);
+  ctx.putImageData(bbuf, bx * 8, (nby - by - 1) * 8);
 }
 
 // update front buffer
@@ -118,12 +127,13 @@ function updateFrontBuffer()
   frontctx.drawImage(backbuffer, 0, 0, backbuffer.width, backbuffer.height, 0, 0, canvas.width, canvas.height);
 
   // draw gridlines
-  if (drawgrid) {
+  if (grid) {
     var space = 8 * (1 << zoom);
     var bx, by;
 
+    frontctx.imageSmoothingEnabled = true;
     frontctx.lineWidth = 0.5;
-    for (bx = 0; bx < nbx; ++bx) {
+    for (bx = 0; bx <= nbx; ++bx) {
       frontctx.beginPath();
       frontctx.moveTo(bx * space, 0)
       frontctx.lineTo(bx * space, (nbx+1) * space);
@@ -132,7 +142,7 @@ function updateFrontBuffer()
       frontctx.strokeStyle = 'black';
       frontctx.stroke();
     }
-    for (by=0; by<nbx; ++by) {
+    for (by = 0; by <= nbx; ++by) {
       frontctx.beginPath();
       frontctx.moveTo(0, by * space)
       frontctx.lineTo((nbx+1) * space, by * space);
@@ -144,6 +154,22 @@ function updateFrontBuffer()
   }
 }
 
+// clear image
+function clear()
+{
+  for (by = 0; by < nby; ++by)
+    for (bx = 0; bx < nbx; ++bx)
+      image[bx + by * nbx].clear();
+}
+
+// randomize image
+function randomize()
+{
+  for (by = 0; by < nby; ++by)
+    for (bx = 0; bx < nbx; ++bx)
+      image[bx + by * nbx].random();
+}
+
 // redraw image
 function redraw()
 {
@@ -152,6 +178,28 @@ function redraw()
     for (bx = 0; bx < nbx; ++bx)
       drawBlock(bx, by, image[bx + by * nbx]);
   updateFrontBuffer();
+}
+
+// serialize image for exporting and emergency save
+function serializeImage()
+{
+  var size = nbx * nby * 9 + 2;
+  buf = new Uint8Array(new ArrayBuffer(size));
+  // header (width and height)
+  buf[0] = nbx;
+  buf[1] = nby;
+
+  // serialize fg/bg data
+  var i, j, blocks = bx*by;
+  for (i = 0; i < blocks; ++i)
+    buf[i+2] = image[i].fg + image[i].bg << 4;
+
+  // serialize bitmap data
+  for (i = 0; i < blocks; ++i)
+    for (j = 0; j < 8; ++j)
+      buf[i*8+j+blocks+2] = image[i].pix[j];
+
+  return window.btoa(buf);
 }
 
 // zoom factor
@@ -165,16 +213,6 @@ function setZoom(z)
     updateFrontBuffer();
   }
 }
-
-// add keyboard event listener
-document.addEventListener('keydown', (e) => {
-  if (e.keyCode >= 48 && e.keyCode < 56)
-  {
-    fg = e.keyCode - 48;
-    if (e.shiftKey)
-      fg += 8;
-  }
-});
 
 // debug events
 var dspan = document.getElementById("debug");
@@ -244,6 +282,37 @@ function restoreBlocks()
     drawBlock(restore[i].x, restore[i].y, image[restore[i].x + restore[i].y * nbx]);
 }
 
+// add keyboard event listener
+document.addEventListener('keydown', (e) => {
+  if (e.keyCode >= 48 && e.keyCode < 56) {
+    fg = e.keyCode - 48;
+    if (e.shiftKey)
+      fg += 8;
+  }
+  else if (e.key === 'g') {
+    grid = !grid;
+    updateFrontBuffer();
+  }
+  else if (e.key === 'C') {
+    if (confirm("Deleting canvas content.")) {
+      clear();
+      redraw();
+    }
+  }
+  else if (e.key === 'R') {
+    randomize();
+    redraw();
+  }
+  else if (e.key === '+') {
+    setZoom(zoom+1)
+  }
+  else if (e.key === '-' && zoom > 0) {
+    setZoom(zoom-1)
+  }
+
+  else console.log(e);
+});
+
 // add mouse listeners
 canvas.addEventListener('mousedown', (e) => {
   dragging = true;
@@ -266,9 +335,19 @@ canvas.addEventListener('touchend', (e) => {
   e.stopPropagation();
 });
 canvas.addEventListener('mousemove', (e) => {
-  if (tool === 0) { // pixel draw
-    if (e.buttons === 0) {
+  var pxn = Math.floor(e.offsetX / (1 << zoom));
+  var pyn = Math.floor(e.offsetY / (1 << zoom));
 
+  // mouse has not moved
+  if (pxn === px && pyn === py)
+    return;
+
+  px = pxn;
+  py = pyn;
+
+  if (tool === 0) { // pixel draw
+    if (e.buttons === 0) { // preview
+      console.log(pxn, pyn);
     }
   }
   e.preventDefault();
@@ -283,11 +362,14 @@ canvas.addEventListener('contextmenu', function(evt) {
   evt.preventDefault();
 }, false);
 
-document.addEventListener('keydown', (e) => {
-
+// add system events
+document.addEventListener('unload', (e) => {
+  window.localStorage.setItem('current_image', serializeImage());
 });
 
-// redraw();
+setZoom(2);
+redraw();
+
 </script>
 </body>
 </html>
