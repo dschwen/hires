@@ -21,6 +21,11 @@ body { background-color: black;}
     </div>
   </div>
 <script>
+// color mode. If this is true setting a third color will recolor the block so that
+// the smallest number of pixels is changed, otherwise it will recolor all pixels
+// with the same coloer as the pixel underneath the pointer (MultiPaint default))
+var minmal_pixel_change = true;
+
 // block data
 class Block {
   constructor(copy) {
@@ -48,36 +53,81 @@ class Block {
   }
 
   setPixel(x, y, color) {
-    var sum = this.pix.reduce((sum, v) => { return sum + v;});
+    var is_set = this.pix[y] & (1 << (7-x));
+
+    // no color change necessary
+    if (this.fg == color) {
+      if (!is_set)
+        this.pix[y] += (1 << (7-x));
+      return;
+    }
+    if (this.bg == color) {
+      if (is_set)
+        this.pix[y] -= (1 << (7-x));
+      return;
+    }
+
+    // count number of set pixels in the current block
+    var sum = this.pix.reduce((accu, v) => { return accu + bitcount[v]; }, 0);
     if (sum == 0) {
+      // block has no pixels set, we are free to reset the foreground color
       this.fg = color;
       this.pix[y] += (1 << (7-x));
     }
-    else if (sum == 255 * 8) {
+    else if (sum == 64 && this.fg != color) {
+      // block has all pixels set, we are free to reset the background color
       this.bg = color;
       this.pix[y] -= (1 << (7-x));
     }
     else {
-      var is_set = this.pix[y] & (1 << (7-x));
-      if (is_set) {
-        if (this.bg == color)
-          // set to background color
-          this.pix[y] -= (1 << (7-x));
-        else
-          // change foreground color
+      // some pixels are set, some are not. Proceed depending on the color change model
+      if (minmal_pixel_change) {
+        // try to set with recoloring as few pixels as possible
+        if (sum <= 32) {
+          if (is_set) {
+            // change foreground color
+            this.fg = color;
+          }
+          else {
+            this.fg = color;
+            this.pix[y] += (1 << (7-x));
+          }
+        } else {
+          if (!is_set) {
+            // change background color
+            this.bg = color;
+            console.log(sum, 'case1');
+          }
+          else {
+            this.bg = color;
+            this.pix[y] -= (1 << (7-x));
+            console.log(sum, 'case2');
+          }
+        }
+      } else {
+        // recolor all pixels that are like the pixel at these coordinates
+        if (is_set)
           this.fg = color;
-      }
-      else {
-        if (this.fg == color)
-          // set to foreground color
-          this.pix[y] += (1 << (7-x));
         else
-          // change background color
           this.bg = color;
       }
     }
   }
 }
+
+// bit count table (to quickly count the number of set pixels in a block)
+var bitcount = (function(){
+  var a = Array.apply(null, Array(256)).map(() => {return 0;}), byte, buf;
+  for (byte = 0; byte < 256; ++byte) {
+    buf = byte;
+    while (buf != 0) {
+      if (buf & 1)
+        a[byte]++
+      buf = (buf >> 1);
+    }
+  }
+  return a;
+})();
 
 // size of canvas in blocks
 var nbx = 320/8, nby = 200/8;
