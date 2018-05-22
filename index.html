@@ -52,6 +52,13 @@ class Block {
     this.pix = Array.apply(null, Array(8)).map(() => {return Math.floor(Math.random() * 256);;});
   }
 
+  getPixel(x, y) {
+    var is_set = this.pix[y] & (1 << (7-x));
+    if (is_set)
+      return this.fg;
+    return this.bg;
+  }
+
   setPixel(x, y, color) {
     var is_set = this.pix[y] & (1 << (7-x));
 
