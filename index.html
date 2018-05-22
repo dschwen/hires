@@ -46,6 +46,37 @@ class Block {
     this.bg = Math.floor(Math.random() * 16);
     this.pix = Array.apply(null, Array(8)).map(() => {return Math.floor(Math.random() * 256);;});
   }
+
+  setPixel(x, y, color) {
+    var sum = this.pix.reduce((sum, v) => { return sum + v;});
+    if (sum == 0) {
+      this.fg = color;
+      this.pix[y] += (1 << (7-x));
+    }
+    else if (sum == 255 * 8) {
+      this.bg = color;
+      this.pix[y] -= (1 << (7-x));
+    }
+    else {
+      var is_set = this.pix[y] & (1 << (7-x));
+      if (is_set) {
+        if (this.bg == color)
+          // set to background color
+          this.pix[y] -= (1 << (7-x));
+        else
+          // change foreground color
+          this.fg = color;
+      }
+      else {
+        if (this.fg == color)
+          // set to foreground color
+          this.pix[y] += (1 << (7-x));
+        else
+          // change background color
+          this.bg = color;
+      }
+    }
+  }
 }
 
 // size of canvas in blocks
@@ -103,7 +134,7 @@ palette = [
 ];
 
 // current fg color index for drawing
-var fg = 1;
+var fg = 1, bg = 0;
 
 // preview block
 var preview;
@@ -112,8 +143,8 @@ var preview;
 function drawBlock(bx, by, block)
 {
   var byte, bit, idx = 0, col;
-  for (bit = 7; bit >= 0; --bit)
-    for (byte = 0; byte < 8; ++byte)
+  for (byte = 0; byte < 8; ++byte)
+    for (bit = 7; bit >= 0; --bit)
     {
       is_set = block.pix[byte] & (1 << bit);
       if (is_set)
@@ -127,7 +158,8 @@ function drawBlock(bx, by, block)
       bbuf.data[idx++] = 255;
     }
 
-  ctx.putImageData(bbuf, bx * 8, (nby - by - 1) * 8);
+  // ctx.putImageData(bbuf, bx * 8, (nby - by - 1) * 8);
+  ctx.putImageData(bbuf, bx * 8, by * 8);
 }
 
 // update front buffer
@@ -191,6 +223,20 @@ function redraw()
   updateFrontBuffer();
 }
 
+// set a pixel at given coordinates using an block object
+function setPixel(px, py, color, draw) {
+  var bx = px >> 3, by = py >> 3;
+  var block;
+  if (draw) {
+    block = image[bx + by * nbx];
+  } else {
+    block = new Block(image[bx + by * nbx]);
+  }
+  block.setPixel(px % 8, py % 8, color)
+  drawBlock(bx, by, block);
+}
+
+
 // serialize image for exporting and emergency save
 function serializeImage()
 {
@@ -241,11 +287,15 @@ function restoreImage(data)
 }
 
 // undo data
-var undodata = [];
+var undodata = [], undocurrent;
 var undopointer = 0;
 
 function undo() {
   if (undopointer > 0) {
+    if (undopointer == undodata.length) {
+      // save current state if we at the end of the undo chain
+      undocurrent = serializeImage();
+    }
     undopointer--;
     restoreImage(undodata[undopointer]);
   }
@@ -253,7 +303,11 @@ function undo() {
 function redo() {
   if (undopointer < undodata.length) {
     undopointer++;
-    restoreImage(undodata[undopointer]);
+    if (undopointer == undodata.length) {
+      restoreImage(undocurrent);
+    } else {
+      restoreImage(undodata[undopointer]);
+    }
   }
 }
 function saveHistory() {
@@ -336,11 +390,15 @@ var dragging = false;
 
 // block list to restore
 var restore = [];
+function saveBlock(px, py) {
+  restore.push({x: (px >> 3), y: (py >> 3)});
+}
 function restoreBlocks()
 {
   var i;
   for (i=0; i<restore.length; ++i)
     drawBlock(restore[i].x, restore[i].y, image[restore[i].x + restore[i].y * nbx]);
+  restore = [];
 }
 
 // add keyboard event listener
@@ -379,15 +437,43 @@ document.addEventListener('keydown', (e) => {
     setZoom(zoom-1)
   }
 
-  else console.log(e);
+  // else console.log(e);
 });
 
-// add mouse listeners
-canvas.addEventListener('mousedown', (e) => {
-  dragging = true;
+// process mouse event
+function processMouseEvent(e)
+{
+  var pxn = Math.floor(e.offsetX / (1 << zoom));
+  var pyn = Math.floor(e.offsetY / (1 << zoom));
+
+  // mouse has not moved
+  if (e.type == 'mousemove' && pxn === px && pyn === py)
+    return;
+
+  px = pxn;
+  py = pyn;
+
+  if (tool === 0) { // pixel draw
+    if (e.buttons === 0) { // preview
+      restoreBlocks();
+      saveBlock(px, py);
+      setPixel(pxn, pyn, fg, false);
+      updateFrontBuffer();
+    }
+    else if (e.buttons === 1) { // fg
+      setPixel(pxn, pyn, fg, true);
+      updateFrontBuffer();
+    }
+    else if (e.buttons === 2) { // bg
+      setPixel(pxn, pyn, bg, true);
+      updateFrontBuffer();
+    }
+  }
   e.preventDefault();
   e.stopPropagation();
-});
+}
+
+// add mouse listeners
 canvas.addEventListener('touchmove', (e) => {
   printEvent(e);
   e.preventDefault();
@@ -403,24 +489,12 @@ canvas.addEventListener('touchend', (e) => {
   e.preventDefault();
   e.stopPropagation();
 });
+canvas.addEventListener('mousedown', (e) => {
+  dragging = true;
+  processMouseEvent(e);
+});
 canvas.addEventListener('mousemove', (e) => {
-  var pxn = Math.floor(e.offsetX / (1 << zoom));
-  var pyn = Math.floor(e.offsetY / (1 << zoom));
-
-  // mouse has not moved
-  if (pxn === px && pyn === py)
-    return;
-
-  px = pxn;
-  py = pyn;
-
-  if (tool === 0) { // pixel draw
-    if (e.buttons === 0) { // preview
-      // console.log(pxn, pyn);
-    }
-  }
-  e.preventDefault();
-  e.stopPropagation();
+  processMouseEvent(e)
 });
 document.addEventListener('mouseup', (e) => {
   dragging = false;
