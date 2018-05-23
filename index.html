@@ -1,24 +1,29 @@
 <html>
 <head>
 <style>
-body { margin: 0; padding: 0; }
-#viewport { overflow: scroll; width: 95% }
-#backbuffer { display: none; }
-#canvas { clear: both; padding: 0 }
+  body        { margin: 0; padding: 0; background-color: #222; color:#eee; }
+  #viewport   { overflow: scroll; width: 95%; height:100vh; padding: 0; margin: 0; }
+  #toolbar    {
+    width: 5%; height:100vh;
+    padding: 0; margin: 0;
+    position: absolute; top: 0; right: 0;
+  }
+  #backbuffer { display: none; }
+  #canvas     { padding: 0; }
 
-#debug { color:white; font-size: 80%; width: 48%; background-color: #333}
-#debug2 { color:white; width: 48%; float: right; background-color: #333}
-body { background-color: black;}
+  #debug  { font-size: 80%; width: 48%; background-color: #333; }
+  #debug2 { width: 48%; float: right; background-color: #333; }
 </style>
 </head>
 <body>
   <div id="viewport">
     <canvas id="backbuffer"></canvas>
     <canvas id="canvas"></canvas>
-    <div>
-      <div id="debug2"></div>
-      <div id="debug"></div>
-    </div>
+  </div>
+  <canvas id="toolbar"></canvas>
+  <div>
+    <div id="debug2"></div>
+    <div id="debug"></div>
   </div>
 <script>
 // color mode. If this is true setting a third color will recolor the block so that
@@ -458,43 +463,39 @@ function restoreBlocks()
   restore = [];
 }
 
+// toolbar and hotkeys
+var commands = [
+  ['d',  0, () => { tool = 0; }],
+  [null, 1, () => {
+    restoreBlocks();
+    this.href = backbuffer.toDataURL("image/png");
+    this.download = 'untitled.png'; }
+  ],
+  ['C',  2, () => { saveHistory(); clear(); redraw(); }],
+  ['u',  3, () => { undo(); redraw(); }],
+  ['y',  4, () => { redo(); redraw(); }],
+  ['g', null, () => { grid = !grid; updateFrontBuffer(); }],
+  ['R', null, () => { saveHistory(); randomize(); redraw(); }],
+  ['+', null, () => { setZoom(zoom + 1); }],
+  ['-', null, () => { setZoom(zoom - 1); }]
+];
+
 // add keyboard event listener
 document.addEventListener('keydown', (e) => {
   if (e.keyCode >= 48 && e.keyCode < 56) {
     fg = e.keyCode - 48;
     if (e.shiftKey)
       fg += 8;
-  }
-  else if (e.key === 'g') {
-    grid = !grid;
-    updateFrontBuffer();
-  }
-  else if (e.key === 'C') {
-    saveHistory();
-    clear();
-    redraw();
-  }
-  else if (e.key === 'u') {
-    undo();
-    redraw();
-  }
-  else if (e.key === 'y') {
-    redo();
-    redraw();
-  }
-  else if (e.key === 'R') {
-    saveHistory();
-    randomize();
-    redraw();
-  }
-  else if (e.key === '+') {
-    setZoom(zoom+1)
-  }
-  else if (e.key === '-' && zoom > 0) {
-    setZoom(zoom-1)
+    toolbar.draw();
+    return;
   }
 
-  // else console.log(e);
+  var i;
+  for (i = 0; i < commands.length; ++i)
+    if (e.key === commands[i][0]) {
+      commands[i][2]();
+      return;
+    }
 });
 
 // process mouse event
@@ -548,6 +549,7 @@ canvas.addEventListener('touchend', (e) => {
 });
 canvas.addEventListener('mousedown', (e) => {
   dragging = true;
+  saveHistory();
   processMouseEvent(e);
 });
 canvas.addEventListener('mousemove', (e) => {
@@ -566,6 +568,84 @@ canvas.addEventListener('contextmenu', function(evt) {
 window.addEventListener('beforeunload', (e) => {
   window.localStorage.setItem('current_image', serializeImage());
 });
+
+// toolbar
+class Toolbar
+{
+  constructor(id) {
+    this.icons = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAABQCAAAAAA1wKrRAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH4gUXEh8pAjwRkwAAAB1pVFh0Q29tb'
+                +'WVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmUHAAAAlklEQVQ4y8WUQRKAMAwC+5L9ar7uwVoJsaOjo3rESoBgW9jTrgNkgAG19HrKgdDIiZ2DCHxK5uCCUm6Zew4AeEDPgJWx'
+                +'804iJGwNlTTgbfvbhKG0Z6HSuxeRzohsGqEB/omTlrFF2Gd1qECSjq5uBWS5Kl2ADhUvpwCWKT/Y99+UXEuku02rboB0THkObwdmd5BX6raXBWTzRI/ClYQ9AAAAAElFTkSuQmCC';
+    this.img = new Image();
+    this.img.src = this.icons;
+
+    this.element = document.getElementById(id);
+    this.ctx = this.element.getContext('2d');
+
+    this.palette = new Array(16);
+    for (var i = 0; i < 16; ++i)
+      this.palette[i] = 'rgb(' + palette[i].red + ',' + palette[i].green + ',' + palette[i].blue + ')';
+
+    window.addEventListener('resize', (e) => {
+      this.draw();
+    });
+    this.element.addEventListener('mousedown', (e) => {
+      // check palette
+      var bw = this.element.width >> 1; // w/2
+      var bh = this.element.height >> 4; // h/16
+      var cx = Math.floor(e.offsetX / bw);
+      var cy = Math.floor(e.offsetY / bh - 8);
+      console.log(cx,cy);
+      if (cx >= 0 && cx <= 1 && cy >= 0 && cy <= 7) {
+        if (e.buttons === 1)
+          fg = cx * 8 + cy;
+        if (e.buttons === 2)
+          bg = cx * 8 + cy;
+        this.draw();
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    });
+
+    this.draw();
+  }
+  draw() {
+    var i, j, c;
+    var w = this.element.offsetWidth, h = this.element.offsetHeight;
+    var bw = w >> 1; // w/2
+    var bh = h >> 4; // h/16
+    var fw = bw >> 4;
+    var fh = bh >> 4;
+    this.element.width = w;
+    this.element.height = h;
+    console.log('draw');
+    // insert color swaths
+    for (i = 0; i < 2; ++i)
+      for (j = 0; j < 8; ++j) {
+        c = i * 8 + j;
+        if (fg != c && bg != c) {
+          this.ctx.fillStyle = this.palette[c];
+          this.ctx.fillRect(i*bw, (j+8)*bh, bw, bh);
+        } else {
+          if (fg == c && bg == c) {
+            this.ctx.fillStyle = '#777';
+          } else if (fg == c) {
+            this.ctx.fillStyle = '#ddd';
+          } else {
+            this.ctx.fillStyle = '#111';
+          }
+          this.ctx.fillRect(i*bw, (j+8)*bh, bw, bh);
+          this.ctx.fillStyle = this.palette[c];
+          this.ctx.fillRect(i*bw + fw, (j+8)*bh + fh, bw - 2* fw, bh - 2*fh);
+        }
+      }
+
+    //this.ctx.imageSmoothingEnabled = false;
+  }
+}
+
+// instantiate Toolbar on canvas#toolbar
+var toolbar = new Toolbar('toolbar');
 
 setZoom(2);
 redraw();
