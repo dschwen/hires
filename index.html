@@ -175,25 +175,45 @@ var bbuf = ctx.createImageData(8, 8);
 // draw gridlines?
 var grid = true;
 
-// palette
-palette = [
-    { "red": 0,   "green": 0,   "blue": 0,   "name": "black"       },
-    { "red": 255, "green": 255, "blue": 255, "name": "white"       },
-    { "red": 104, "green": 55,  "blue": 43,  "name": "red"         },
-    { "red": 112, "green": 164, "blue": 178, "name": "cyan"        },
-    { "red": 111, "green": 61,  "blue": 134, "name": "purple"      },
-    { "red": 88,  "green": 141, "blue": 67,  "name": "green"       },
-    { "red": 53,  "green": 40,  "blue": 121, "name": "blue"        },
-    { "red": 184, "green": 199, "blue": 111, "name": "yellow"      },
-    { "red": 111, "green": 79,  "blue": 37,  "name": "orange"      },
-    { "red": 67,  "green": 57,  "blue": 0,   "name": "brown"       },
-    { "red": 154, "green": 103, "blue": 89,  "name": "light red"   },
-    { "red": 68,  "green": 68,  "blue": 68,  "name": "dark grey"   },
-    { "red": 108, "green": 108, "blue": 108, "name": "grey"        },
-    { "red": 154, "green": 210, "blue": 132, "name": "light green" },
-    { "red": 108, "green": 94,  "blue": 181, "name": "light blue"  },
-    { "red": 149, "green": 149, "blue": 149, "name": "light grey"  }
+// murky palette
+var murky_palette = [
+  { "red": 0,   "green": 0,   "blue": 0,   "name": "black"       },
+  { "red": 255, "green": 255, "blue": 255, "name": "white"       },
+  { "red": 104, "green": 55,  "blue": 43,  "name": "red"         },
+  { "red": 112, "green": 164, "blue": 178, "name": "cyan"        },
+  { "red": 111, "green": 61,  "blue": 134, "name": "purple"      },
+  { "red": 88,  "green": 141, "blue": 67,  "name": "green"       },
+  { "red": 53,  "green": 40,  "blue": 121, "name": "blue"        },
+  { "red": 184, "green": 199, "blue": 111, "name": "yellow"      },
+  { "red": 111, "green": 79,  "blue": 37,  "name": "orange"      },
+  { "red": 67,  "green": 57,  "blue": 0,   "name": "brown"       },
+  { "red": 154, "green": 103, "blue": 89,  "name": "light red"   },
+  { "red": 68,  "green": 68,  "blue": 68,  "name": "dark grey"   },
+  { "red": 108, "green": 108, "blue": 108, "name": "grey"        },
+  { "red": 154, "green": 210, "blue": 132, "name": "light green" },
+  { "red": 108, "green": 94,  "blue": 181, "name": "light blue"  },
+  { "red": 149, "green": 149, "blue": 149, "name": "light grey"  }
 ];
+// lively palette
+var lively_palette = [
+  { "red": 0,   "green": 0,   "blue": 0,   "name": "black"       },
+  { "red": 255, "green": 255, "blue": 255, "name": "white"       },
+  { "red": 136, "green": 0,   "blue": 0,   "name": "red"         },
+  { "red": 170, "green": 255, "blue": 238, "name": "cyan"        },
+  { "red": 204, "green": 68,  "blue": 204, "name": "purple"      },
+  { "red": 0,   "green": 204, "blue": 85,  "name": "green"       },
+  { "red": 0,   "green": 0,   "blue": 170, "name": "blue"        },
+  { "red": 238, "green": 238, "blue": 119, "name": "yellow"      },
+  { "red": 221, "green": 136, "blue": 85,  "name": "orange"      },
+  { "red": 102, "green": 68,  "blue": 0,   "name": "brown"       },
+  { "red": 255, "green": 119, "blue": 119, "name": "light red"   },
+  { "red": 51,  "green": 51,  "blue": 51,  "name": "dark grey"   },
+  { "red": 119, "green": 119, "blue": 119, "name": "grey"        },
+  { "red": 170, "green": 255, "blue": 102, "name": "light green" },
+  { "red": 0,   "green": 136, "blue": 255, "name": "light blue"  },
+  { "red": 187, "green": 187, "blue": 187, "name": "light grey"  }
+];
+var palette = murky_palette;
 
 // current fg color index for drawing
 var fg = 1, bg = 0;
@@ -469,11 +489,19 @@ var commands = [
   [null, 1, () => {
     restoreBlocks();
     this.href = backbuffer.toDataURL("image/png");
-    this.download = 'untitled.png'; }
-  ],
+    this.download = 'untitled.png';
+  }],
   ['C',  2, () => { saveHistory(); clear(); redraw(); }],
   ['u',  3, () => { undo(); redraw(); }],
   ['y',  4, () => { redo(); redraw(); }],
+  ['p', null, () => {
+    if (palette === murky_palette)
+      palette = lively_palette;
+    else
+      palette = murky_palette;
+    redraw();
+    toolbar.draw();
+  }],
   ['g', null, () => { grid = !grid; updateFrontBuffer(); }],
   ['R', null, () => { saveHistory(); randomize(); redraw(); }],
   ['+', null, () => { setZoom(zoom + 1); }],
@@ -582,10 +610,6 @@ class Toolbar
     this.element = document.getElementById(id);
     this.ctx = this.element.getContext('2d');
 
-    this.palette = new Array(16);
-    for (var i = 0; i < 16; ++i)
-      this.palette[i] = 'rgb(' + palette[i].red + ',' + palette[i].green + ',' + palette[i].blue + ')';
-
     window.addEventListener('resize', (e) => {
       this.draw();
     });
@@ -609,6 +633,9 @@ class Toolbar
 
     this.draw();
   }
+  color(i) {
+    return 'rgb(' + palette[i].red + ',' + palette[i].green + ',' + palette[i].blue + ')';
+  }
   draw() {
     var i, j, c;
     var w = this.element.offsetWidth, h = this.element.offsetHeight;
@@ -618,13 +645,13 @@ class Toolbar
     var fh = bh >> 4;
     this.element.width = w;
     this.element.height = h;
-    console.log('draw');
+
     // insert color swaths
     for (i = 0; i < 2; ++i)
       for (j = 0; j < 8; ++j) {
         c = i * 8 + j;
         if (fg != c && bg != c) {
-          this.ctx.fillStyle = this.palette[c];
+          this.ctx.fillStyle = this.color(c);
           this.ctx.fillRect(i*bw, (j+8)*bh, bw, bh);
         } else {
           if (fg == c && bg == c) {
@@ -635,7 +662,7 @@ class Toolbar
             this.ctx.fillStyle = '#111';
           }
           this.ctx.fillRect(i*bw, (j+8)*bh, bw, bh);
-          this.ctx.fillStyle = this.palette[c];
+          this.ctx.fillStyle = this.color(c);
           this.ctx.fillRect(i*bw + fw, (j+8)*bh + fh, bw - 2* fw, bh - 2*fh);
         }
       }
