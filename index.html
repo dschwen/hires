@@ -111,12 +111,10 @@ class Block {
           if (!is_set) {
             // change background color
             this.bg = color;
-            console.log(sum, 'case1');
           }
           else {
             this.bg = color;
             this.pix[y] -= (1 << (7-x));
-            console.log(sum, 'case2');
           }
         }
       } else {
