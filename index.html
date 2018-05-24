@@ -674,6 +674,82 @@ class Toolbar
 // instantiate Toolbar on canvas#toolbar
 var toolbar = new Toolbar('toolbar');
 
+// import image
+function importImage(img)
+{
+  // image is loaded, copy it to a canvas to resize and process
+  var importcanvas = document.createElement("canvas");
+  importcanvas.width = backbuffer.width;
+  importcanvas.height = backbuffer.height;
+  var importctx = importcanvas.getContext('2d');
+  var rx = img.width / importcanvas.width, ry = img.height / importcanvas.height;
+  // shrink to canvas preseving aspect ratio, but never enlarge
+  var rr = Math.max(1.0, Math.max(rx, ry));
+  console.log(rx,ry,rr);
+
+  // scaled width and height, copy image to import canvas
+  var sw = Math.floor(img.width / rr), sh = Math.floor(img.height / rr);
+  importctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, sw, sh);
+
+  // set up datastructures
+  var dist = new Int32Array(new ArrayBuffer(4 * 16 * 64));
+  var bx, ibx = Math.ceil(sw / 8);
+  var by, iby = Math.ceil(sh / 8);
+
+  // loop over blocks and color reduce
+  var buf;
+  for (bx = 0; bx < ibx; ++bx)
+    for (by = 0; by < iby; ++by)
+    {
+      // get image data for current block
+      buf = importctx.getImageData(bx * 8 , by * 8, 8, 8);
+
+      // build distance table for all 16 commodore palette entries and 64 pixels in the current block
+      var px, col, i = 0;
+      for (col = 0; col < 16; ++col)
+      {
+        var r = palette[col].red;
+        var g = palette[col].green;
+        var b = palette[col].blue;
+        for (px = 0; px < 64; ++px)
+          dist[i++] = (buf.data[px*4]-r)*(buf.data[px*4]-r) + (buf.data[px*4+1]-g)*(buf.data[px*4+1]-g) + (buf.data[px*4+2]-b)*(buf.data[px*4+2]-b)
+      }
+
+      // find 2-color combination with minimum distance square sum
+      var sum, msum = null, match, c1, c2;
+      for (c1 = 1; c1 < 16; ++c1)
+        for (c2 = 0; c2 < c1; ++c2)
+        {
+          // generate metric
+          sum = 0;
+          for (px = 0; px < 64; ++px)
+            sum += Math.min(dist[c1*64+px], dist[c2*64+px]);
+          if (msum === null || sum < msum) {
+            msum = sum;
+            match = [c1, c2, msum];
+          }
+        }
+
+      // loop over block and raster it
+      var x, y, b = image[bx + by * nbx];
+      px = 0;
+      for (y = 0; y < 8; ++y) {
+        b.pix[y] = 0;
+        for (x = 0; x < 8; ++x) {
+          b.pix[y] <<= 1;
+          // no dithering
+          if (dist[match[0]*64+px] < dist[match[1]*64+px])
+            b.pix[y]++;
+          px++;
+        }
+      }
+      b.fg = match[0];
+      b.bg = match[1];
+      console.log(b);
+    }
+  redraw();
+}
+
 // Setup the dnd listeners.
 canvas.addEventListener('dragover', (e) => {
   e.stopPropagation();
@@ -696,17 +772,12 @@ canvas.addEventListener('drop', (e) => {
     return;
   }
 
+  var img = new Image();
+  img.onload = () => { importImage(img); };
+
   var reader = new FileReader();
   reader.onload = (e) => { img.src = e.target.result; };
   reader.readAsDataURL(file);
-
-  var img = new Image();
-  img.onload = () => {
-    // image is loaded, copy it to a canvas to resize and process
-    var importcanvas = document.createElement("canvas");
-    var importctx = importcanvas.getContext('2d');
-    console.log(img.width, img.height);
-  };
 });
 
 setZoom(2);
