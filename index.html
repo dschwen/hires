@@ -674,6 +674,41 @@ class Toolbar
 // instantiate Toolbar on canvas#toolbar
 var toolbar = new Toolbar('toolbar');
 
+// Setup the dnd listeners.
+canvas.addEventListener('dragover', (e) => {
+  e.stopPropagation();
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'copy';
+});
+canvas.addEventListener('drop', (e) => {
+  e.stopPropagation();
+  e.preventDefault();
+
+  var files = e.dataTransfer.files;
+  if (files.length > 1) {
+    alert("Drop one file at a time.");
+    return;
+  }
+
+  var file = files[0];
+  if (!file.type.match('image.*')) {
+    alert("Drop an image file for importing.");
+    return;
+  }
+
+  var reader = new FileReader();
+  reader.onload = (e) => { img.src = e.target.result; };
+  reader.readAsDataURL(file);
+
+  var img = new Image();
+  img.onload = () => {
+    // image is loaded, copy it to a canvas to resize and process
+    var importcanvas = document.createElement("canvas");
+    var importctx = importcanvas.getContext('2d');
+    console.log(img.width, img.height);
+  };
+});
+
 setZoom(2);
 redraw();
 
