@@ -31,6 +31,9 @@
 // with the same coloer as the pixel underneath the pointer (MultiPaint default))
 var minmal_pixel_change = true;
 
+// import using dithering?
+var dithering = false;
+
 // block data
 class Block {
   constructor(copy) {
@@ -486,6 +489,7 @@ function restoreBlocks()
 // toolbar and hotkeys
 var commands = [
   ['d',  0, () => { tool = 0; }],
+  ['D', null, () => { dithering = !dithering; }],
   [null, 1, () => {
     restoreBlocks();
     this.href = backbuffer.toDataURL("image/png");
@@ -716,19 +720,33 @@ function importImage(img)
       }
 
       // find 2-color combination with minimum distance square sum
+      var other_color_factor = 0.01;
       var sum, msum = null, match, c1, c2;
       for (c1 = 1; c1 < 16; ++c1)
         for (c2 = 0; c2 < c1; ++c2)
         {
           // generate metric
           sum = 0;
-          for (px = 0; px < 64; ++px)
+          for (px = 0; px < 64; ++px) {
             sum += Math.min(dist[c1*64+px], dist[c2*64+px]);
+            // if we are dithering we mix in the disregarded distance as well
+            if (dithering)
+              sum += other_color_factor * Math.max(dist[c1*64+px], dist[c2*64+px]);
+          }
           if (msum === null || sum < msum) {
             msum = sum;
             match = [c1, c2, msum];
           }
         }
+
+      // distance between the two matched colors (needed for dithering)
+      var r0 = palette[match[0]].red;
+      var g0 = palette[match[0]].green;
+      var b0 = palette[match[0]].blue;
+      var r1 = palette[match[1]].red;
+      var g1 = palette[match[1]].green;
+      var b1 = palette[match[1]].blue;
+      var dmatch = (r1-r0)*(r1-r0) + (g1-g0)*(g1-g0) + (b1-b0)*(b1-b0);
 
       // loop over block and raster it
       var x, y, b = image[bx + by * nbx];
@@ -737,9 +755,17 @@ function importImage(img)
         b.pix[y] = 0;
         for (x = 0; x < 8; ++x) {
           b.pix[y] <<= 1;
-          // no dithering
-          if (dist[match[0]*64+px] < dist[match[1]*64+px])
-            b.pix[y]++;
+          var d0 = dist[match[0]*64+px];
+          var d1 = dist[match[1]*64+px];
+          if (!dithering || d0 > dmatch || d1 > dmatch) {
+            // no dithering
+            if (d0 < d1)
+              b.pix[y]++;
+          } else {
+            // random dithering
+            if (Math.random() * (d0 + d1) > d0)
+              b.pix[y]++;
+          }
           px++;
         }
       }
