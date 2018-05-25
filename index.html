@@ -496,6 +496,7 @@ var commands = [
   ['C',  2, () => { saveHistory(); clear(); redraw(); }],
   ['u',  3, () => { undo(); redraw(); }],
   ['y',  4, () => { redo(); redraw(); }],
+  ['b', null, () => { minmal_pixel_change = !minmal_pixel_change; } ],
   ['p', null, () => {
     if (palette === murky_palette)
       palette = lively_palette;
