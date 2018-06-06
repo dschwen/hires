@@ -494,6 +494,13 @@ var commands = [
     redraw();
     toolbar.draw();
   }],
+  ['f', null, () => {
+    // go fullscreen
+    console.log('fullscreen');
+    var c = document.getElementById('container');
+    var r = c.requestFullscreen || c.webkitRequestFullscreen || c.mozRequestFullscreen || null;
+    if (r) r();
+  }],
   ['g', null, () => { grid = !grid; updateFrontBuffer(); }],
   ['R', null, () => { saveHistory(); randomize(); redraw(); }],
   ['+', null, () => { setZoom(zoom + 1); }],
@@ -724,10 +731,7 @@ class Toolbar
     var sh = Math.floor((w*this.jj)/this.ii);
     console.log(w, sh);
     this.ctx.imageSmoothingEnabled = false;
-    this.ctx.drawImage(ctx, 0, 0, this.ii*18, this.jj*18, 0, 0, w, sh);
-        
-    this.ctx.fillStyle = '#f00';
-    this.ctx.fillRect(0, 0, w, sh);
+    this.ctx.drawImage(this.backbuffer, 0, 0, this.ii*18, this.jj*18, 0, 0, w, sh);
   }
 }
 
@@ -866,11 +870,4 @@ canvas.addEventListener('drop', (e) => {
 // set viewport
 setZoom(2);
 redraw();
-
-// go fullscreen
-/*(function() {
-  var c = document.getElementById('container');
-  var r = c.requestFullscreen || c.webkitRequestFullscreen || c.mozRequestFullscreen || null;
-  if (r) r();
-})();*/
 
