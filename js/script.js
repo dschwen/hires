@@ -818,7 +818,7 @@ canvas.addEventListener('drop', (e) => {
 // go fullscreen
 (function() {
   var c = document.getElementById('container');
-  var r = c.requestFullscreen || c.webkitRequestFullscreen | mozRequestFullscreen | (function(){});
+  var r = c.requestFullscreen || c.webkitRequestFullscreen || c.mozRequestFullscreen || (function(){});
   r();
 })();
 
