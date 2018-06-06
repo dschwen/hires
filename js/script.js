@@ -441,10 +441,14 @@ function filterHostObject(e)
 
 function printEvent(e)
 {
-  dspan.innerText = JSON.stringify(filterHostObject(e), (k,v) => {return v;}, ' ');
+  //dspan.innerText = JSON.stringify(filterHostObject(e), (k,v) => {return v;}, ' ');
+  console.log(JSON.stringify(filterHostObject(e), (k,v) => {return v;}, ' '));
+
   var n = estat[e.type] || 0;
   estat[e.type] = n + 1;
-  dspan2.innerText = JSON.stringify(estat, (k,v) => {return v;}, ' ');
+  
+  //dspan2.innerText = JSON.stringify(estat, (k,v) => {return v;}, ' ');
+  console.log(JSON.stringify(estat, (k,v) => {return v;}, ' '));
 }
 
 // pixel coordinates and button state used last
@@ -553,21 +557,27 @@ function processMouseEvent(e)
   e.stopPropagation();
 }
 
+// check if the event is caused by an S-Pen touch
+function isSPen(e)
+{
+  return (
+    e.targetTouches &&
+    e.targetTouches.length === 1 &&
+    e.targetTouches[0].radiusX === 0 &&
+    e.targetTouches[0].radiusY === 0
+  );
+}
+
 // process mouse event
 function processTouchEvent(e)
 {
   var tt = e.targetTouches;
-  console.log(tt);
   //dspan2.innerText = 'pte ';
-  if (tt.length > 0) {
-    // S-Pen test (let finger touches scroll)
-    if (tt[0].radiusX === 0 && tt[0].radiusY === 0.0) {
-      // pen draws with FG
-      //dspan2.innerText += tt[0].pageX + ' , ' +  tt[0].pageY;
-      touchOrHover(tt[0].pageX, tt[0].pageY, 1);
-      e.preventDefault();
-      e.stopPropagation();
-    }
+  if (isSPen(e)) {
+    // pen draws with FG
+    touchOrHover(tt[0].pageX, tt[0].pageY, 1);
+    e.preventDefault();
+    e.stopPropagation();
   }
 }
 
@@ -576,6 +586,11 @@ canvas.addEventListener('touchmove', (e) => {
   processTouchEvent(e);
 });
 canvas.addEventListener('touchstart', (e) => {
+  printEvent(e);
+  if (isSPen(e)) {
+    console.log('saveHistory();');
+    saveHistory();
+  }
   processTouchEvent(e);
 });
 canvas.addEventListener('touchend', (e) => {
@@ -611,10 +626,17 @@ class Toolbar
     this.icons = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAEAAQMAAACAnGQNAAAABlBMVEUaJTH///9GIoGQAAABFElEQVQoz92RMU7DQBBFn8QBOEoOQOGDcABKjuCSgoIj5AiUFBRGUKSgcAGSJUS0QZZwEYVVtEbGsp3lLw6RHeACSF+jmf//zO5o8J4edYQzFBZbYT1WicEmVFJTupidU6gK8jtcSj2ljWjjEJWLKQqKfoIftXR6wlNG2BQjQ0N5RH1P5/DNyLlFgtfwCe7LrJbnCQ9T0gTzw7yIwm/LU94vQ6y+876UJMPQv4lZX7C6Csu+njC/DlCiUqSkTbz/xM1BiFqzS7Z4OaOyNCbkf/nFS5VHTvl3ve3efw5ZZ7yd83jMbUOmfR3zlKeElU4Q8zEePstJHdkyTB7yKkVKkmHIm4ZlFq6Tz0a8SpGSzK8n+P/4BDL91RXNAVX3AAAAAElFTkSuQmCC';
     this.img = new Image();
     this.img.src = this.icons;
-    this.img.onload = () => { this.draw(); };
+
+    this.ii = 2;
+    this.jj = 5;
 
     this.element = document.getElementById(id);
     this.ctx = this.element.getContext('2d');
+
+    this.backbuffer = document.createElement('canvas');
+    this.backbuffer.width = this.ii * 18;
+    this.backbuffer.height = this.jj * 18;
+    this.backctx = this.backbuffer.getContext('2d');
 
     window.addEventListener('resize', (e) => {
       this.draw();
@@ -636,6 +658,8 @@ class Toolbar
         e.stopPropagation();
       }
     });
+
+    this.draw();
   }
 
   color(i) {
@@ -674,10 +698,10 @@ class Toolbar
       }
 
     // draw icons
-    var ii = 2, jj = 5;
-    for (i = 0; i < ii; ++i)
-      for (j = 0; j < jj; ++j) {
-        c = i + j * ii;
+    var ctx = this.backctx;
+    for (i = 0; i < this.ii; ++i)
+      for (j = 0; j < this.jj; ++j) {
+        c = i + j * this.ii;
         // background
         ctx.fillStyle = '#777';
         ctx.fillRect(i*18, j*18, 18, 18);
@@ -697,9 +721,13 @@ class Toolbar
         ctx.strokeStyle = '#444';
         ctx.stroke();
       }
-    var sh = Math.floor((w*jj)/ii);
+    var sh = Math.floor((w*this.jj)/this.ii);
+    console.log(w, sh);
     this.ctx.imageSmoothingEnabled = false;
-    this.ctx.drawImage(ctx, 0, 0, ii*18, jj*18, 0, 0, w, sh);
+    this.ctx.drawImage(ctx, 0, 0, this.ii*18, this.jj*18, 0, 0, w, sh);
+        
+    this.ctx.fillStyle = '#f00';
+    this.ctx.fillRect(0, 0, w, sh);
   }
 }
 
