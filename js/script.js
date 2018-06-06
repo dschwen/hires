@@ -447,8 +447,8 @@ function printEvent(e)
   dspan2.innerText = JSON.stringify(estat, (k,v) => {return v;}, ' ');
 }
 
-// pixel coordinates
-var px, py;
+// pixel coordinates and button state used last
+var px, py, button_old;
 
 // current tool
 var tool = 0;
@@ -514,52 +514,76 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// process mouse event
-function processMouseEvent(e)
+function touchOrHover(x, y, button) 
 {
-  var pxn = Math.floor(e.offsetX / (1 << zoom));
-  var pyn = Math.floor(e.offsetY / (1 << zoom));
+  var pxn = Math.floor(x / (1 << zoom));
+  var pyn = Math.floor(y / (1 << zoom));
 
   // mouse has not moved
-  if (e.type == 'mousemove' && pxn === px && pyn === py)
+  if (button === button_old && pxn === px && pyn === py)
     return;
 
   px = pxn;
   py = pyn;
+  button_old = button;
 
   if (tool === 0) { // pixel draw
-    if (e.buttons === 0) { // preview
+    if (button === 0) { // preview
       restoreBlocks();
       saveBlock(px, py);
       setPixel(pxn, pyn, fg, false);
       updateFrontBuffer();
     }
-    else if (e.buttons === 1) { // fg
+    else if (button === 1) { // fg
       setPixel(pxn, pyn, fg, true);
       updateFrontBuffer();
     }
-    else if (e.buttons === 2) { // bg
+    else if (button === 2) { // bg
       setPixel(pxn, pyn, bg, true);
       updateFrontBuffer();
     }
   }
+}
+
+// process mouse event
+function processMouseEvent(e)
+{
+  touchOrHover(e.offsetX, e.offsetY, e.buttons);
   e.preventDefault();
   e.stopPropagation();
 }
 
+// process mouse event
+function processTouchEvent(e)
+{
+  var tt = e.targetTouches;
+  console.log(tt);
+  dspan2.innerText = 'pte ';
+  if (tt.length > 0) {
+    // S-Pen test (let finger touches scroll)
+    if (tt[0].radiusX === 0 && tt[0].radiusY === 0.0) {
+      // pen draws with FG
+      dspan2.innerText += tt[0].pageX + ' , ' +  tt[0].pageY;
+      touchOrHover(tt[0].pageX, tt[0].pageY, 1);
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }
+}
+
 // add mouse listeners
 canvas.addEventListener('touchmove', (e) => {
-  printEvent(e);
+  processTouchEvent(e);
   e.preventDefault();
   e.stopPropagation();
 });
 canvas.addEventListener('touchstart', (e) => {
-  printEvent(e);
+  processTouchEvent(e);
   e.preventDefault();
   e.stopPropagation();
 });
 canvas.addEventListener('touchend', (e) => {
-  printEvent(e);
+  //printEvent(e);
   e.preventDefault();
   e.stopPropagation();
 });
@@ -791,5 +815,13 @@ canvas.addEventListener('drop', (e) => {
   reader.readAsDataURL(file);
 });
 
+// go fullscreen
+(function() {
+  var c = document.getElementById('container');
+  var r = c.requestFullscreen || c.webkitRequestFullscreen | mozRequestFullscreen | (function(){});
+  r();
+})();
+
+// set viewport
 setZoom(2);
 redraw();
