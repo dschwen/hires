@@ -558,12 +558,12 @@ function processTouchEvent(e)
 {
   var tt = e.targetTouches;
   console.log(tt);
-  dspan2.innerText = 'pte ';
+  //dspan2.innerText = 'pte ';
   if (tt.length > 0) {
     // S-Pen test (let finger touches scroll)
     if (tt[0].radiusX === 0 && tt[0].radiusY === 0.0) {
       // pen draws with FG
-      dspan2.innerText += tt[0].pageX + ' , ' +  tt[0].pageY;
+      //dspan2.innerText += tt[0].pageX + ' , ' +  tt[0].pageY;
       touchOrHover(tt[0].pageX, tt[0].pageY, 1);
       e.preventDefault();
       e.stopPropagation();
@@ -574,16 +574,11 @@ function processTouchEvent(e)
 // add mouse listeners
 canvas.addEventListener('touchmove', (e) => {
   processTouchEvent(e);
-  e.preventDefault();
-  e.stopPropagation();
 });
 canvas.addEventListener('touchstart', (e) => {
   processTouchEvent(e);
-  e.preventDefault();
-  e.stopPropagation();
 });
 canvas.addEventListener('touchend', (e) => {
-  //printEvent(e);
   e.preventDefault();
   e.stopPropagation();
 });
@@ -613,11 +608,10 @@ window.addEventListener('beforeunload', (e) => {
 class Toolbar
 {
   constructor(id) {
-    this.icons = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAABQCAAAAAA1wKrRAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH4gUXEh8pAjwRkwAAAB1pVFh0Q29tb' +
-                 'WVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmUHAAAAlklEQVQ4y8WUQRKAMAwC+5L9ar7uwVoJsaOjo3rESoBgW9jTrgNkgAG19HrKgdDIiZ2DCHxK5uCCUm6Zew4AeEDPgJWx' +
-                 '804iJGwNlTTgbfvbhKG0Z6HSuxeRzohsGqEB/omTlrFF2Gd1qECSjq5uBWS5Kl2ADhUvpwCWKT/Y99+UXEuku02rboB0THkObwdmd5BX6raXBWTzRI/ClYQ9AAAAAElFTkSuQmCC';
+    this.icons = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAEAAQMAAACAnGQNAAAABlBMVEUaJTH///9GIoGQAAABFElEQVQoz92RMU7DQBBFn8QBOEoOQOGDcABKjuCSgoIj5AiUFBRGUKSgcAGSJUS0QZZwEYVVtEbGsp3lLw6RHeACSF+jmf//zO5o8J4edYQzFBZbYT1WicEmVFJTupidU6gK8jtcSj2ljWjjEJWLKQqKfoIftXR6wlNG2BQjQ0N5RH1P5/DNyLlFgtfwCe7LrJbnCQ9T0gTzw7yIwm/LU94vQ6y+876UJMPQv4lZX7C6Csu+njC/DlCiUqSkTbz/xM1BiFqzS7Z4OaOyNCbkf/nFS5VHTvl3ve3efw5ZZ7yd83jMbUOmfR3zlKeElU4Q8zEePstJHdkyTB7yKkVKkmHIm4ZlFq6Tz0a8SpGSzK8n+P/4BDL91RXNAVX3AAAAAElFTkSuQmCC';
     this.img = new Image();
     this.img.src = this.icons;
+    this.img.onload = () => { this.draw(); };
 
     this.element = document.getElementById(id);
     this.ctx = this.element.getContext('2d');
@@ -625,13 +619,13 @@ class Toolbar
     window.addEventListener('resize', (e) => {
       this.draw();
     });
+
     this.element.addEventListener('mousedown', (e) => {
       // check palette
       var bw = this.element.width >> 1; // w/2
       var bh = this.element.height >> 4; // h/16
       var cx = Math.floor(e.offsetX / bw);
       var cy = Math.floor(e.offsetY / bh - 8);
-      console.log(cx,cy);
       if (cx >= 0 && cx <= 1 && cy >= 0 && cy <= 7) {
         if (e.buttons === 1)
           fg = cx * 8 + cy;
@@ -642,12 +636,12 @@ class Toolbar
         e.stopPropagation();
       }
     });
-
-    this.draw();
   }
+
   color(i) {
     return 'rgb(' + palette[i].red + ',' + palette[i].green + ',' + palette[i].blue + ')';
   }
+  
   draw() {
     var i, j, c;
     var w = this.element.offsetWidth, h = this.element.offsetHeight;
@@ -679,7 +673,33 @@ class Toolbar
         }
       }
 
-    //this.ctx.imageSmoothingEnabled = false;
+    // draw icons
+    var ii = 2, jj = 5;
+    for (i = 0; i < ii; ++i)
+      for (j = 0; j < jj; ++j) {
+        c = i + j * ii;
+        // background
+        ctx.fillStyle = '#777';
+        ctx.fillRect(i*18, j*18, 18, 18);
+        // highlight
+        ctx.lineWidth = 1.0;
+        ctx.beginPath();
+        ctx.moveTo(i*18 + 0.5, j*18 + 16.5);
+        ctx.lineTo(i*18 + 0.5, j*18 + 0.5);
+        ctx.lineTo(i*18 + 16.5, j*18 + 0.5);
+        ctx.strokeStyle = '#aaa';
+        ctx.stroke();
+        // shadow
+        ctx.beginPath();
+        ctx.moveTo(i*18 + 1.5, j*18 + 17.5);
+        ctx.lineTo(i*18 + 17.5, j*18 + 17.5);
+        ctx.lineTo(i*18 + 17.5, j*18 + 1.5);
+        ctx.strokeStyle = '#444';
+        ctx.stroke();
+      }
+    var sh = Math.floor((w*jj)/ii);
+    this.ctx.imageSmoothingEnabled = false;
+    this.ctx.drawImage(ctx, 0, 0, ii*18, jj*18, 0, 0, w, sh);
   }
 }
 
@@ -815,13 +835,14 @@ canvas.addEventListener('drop', (e) => {
   reader.readAsDataURL(file);
 });
 
-// go fullscreen
-(function() {
-  var c = document.getElementById('container');
-  var r = c.requestFullscreen || c.webkitRequestFullscreen || c.mozRequestFullscreen || (function(){});
-  r();
-})();
-
 // set viewport
 setZoom(2);
 redraw();
+
+// go fullscreen
+/*(function() {
+  var c = document.getElementById('container');
+  var r = c.requestFullscreen || c.webkitRequestFullscreen || c.mozRequestFullscreen || null;
+  if (r) r();
+})();*/
+
