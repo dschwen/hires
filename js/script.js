@@ -482,11 +482,17 @@ var commands = [
     this.href = backbuffer.toDataURL("image/png");
     this.download = 'untitled.png';
   }],
-  ['C',  2, () => { saveHistory(); clear(); redraw(); }],
-  ['u',  3, () => { undo(); redraw(); }],
-  ['y',  4, () => { redo(); redraw(); }],
-  ['b', null, () => { minmal_pixel_change = !minmal_pixel_change; } ],
-  ['p', null, () => {
+  ['C',  1, () => { saveHistory(); clear(); redraw(); }],
+  ['u',  2, () => { undo(); redraw(); }],
+  ['U',  7, () => {
+    var input = document.createElement('input');
+    input.type = "file";
+    input.addEventListener('change', (e) => { fileUploadHandler(e, input.files); });
+    input.click();
+  }],
+  ['y',  3, () => { redo(); redraw(); }],
+  ['b',  4, () => { minmal_pixel_change = !minmal_pixel_change; } ],
+  ['p',  8, () => {
     if (palette === murky_palette)
       palette = lively_palette;
     else
@@ -494,17 +500,17 @@ var commands = [
     redraw();
     toolbar.draw();
   }],
-  ['f', null, () => {
+  ['f',  9, () => {
     // go fullscreen
     console.log('fullscreen');
     var c = document.getElementById('container');
     var r = c.requestFullscreen || c.webkitRequestFullscreen || c.mozRequestFullscreen || null;
     if (r) r();
   }],
-  ['g', null, () => { grid = !grid; updateFrontBuffer(); }],
+  ['g', 11, () => { grid = !grid; updateFrontBuffer(); }],
   ['R', null, () => { saveHistory(); randomize(); redraw(); }],
-  ['+', null, () => { setZoom(zoom + 1); }],
-  ['-', null, () => { setZoom(zoom - 1); }]
+  ['+',  9, () => { setZoom(zoom + 1); }],
+  ['-', 10, () => { setZoom(zoom - 1); }]
 ];
 
 // add keyboard event listener
@@ -593,9 +599,8 @@ canvas.addEventListener('touchmove', (e) => {
   processTouchEvent(e);
 });
 canvas.addEventListener('touchstart', (e) => {
-  printEvent(e);
+  //printEvent(e);
   if (isSPen(e)) {
-    console.log('saveHistory();');
     saveHistory();
   }
   processTouchEvent(e);
@@ -630,16 +635,25 @@ window.addEventListener('beforeunload', (e) => {
 class Toolbar
 {
   constructor(id) {
-    this.icons = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAEAAQMAAACAnGQNAAAABlBMVEUaJTH///9GIoGQAAABFElEQVQoz92RMU7DQBBFn8QBOEoOQOGDcABKjuCSgoIj5AiUFBRGUKSgcAGSJUS0QZZwEYVVtEbGsp3lLw6RHeACSF+jmf//zO5o8J4edYQzFBZbYT1WicEmVFJTupidU6gK8jtcSj2ljWjjEJWLKQqKfoIftXR6wlNG2BQjQ0N5RH1P5/DNyLlFgtfwCe7LrJbnCQ9T0gTzw7yIwm/LU94vQ6y+876UJMPQv4lZX7C6Csu+njC/DlCiUqSkTbz/xM1BiFqzS7Z4OaOyNCbkf/nFS5VHTvl3ve3efw5ZZ7yd83jMbUOmfR3zlKeElU4Q8zEePstJHdkyTB7yKkVKkmHIm4ZlFq6Tz0a8SpGSzK8n+P/4BDL91RXNAVX3AAAAAElFTkSuQmCC';
+    // spritesheet for the tool bar icons
     this.img = new Image();
-    this.img.src = this.icons;
+    this.img.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAEAAQMAAACAnGQNAAAABlBMVEUaJTGAgIBxkqdpAAABFElEQVQoz92RMU7DQBBFn8QBOEoOQOGDcABKjuCSgoIj5AiUFBRGUKSgcAGSJUS0QZZwEYVVtEbGsp3lLw6RHeACSF+jmf//zO5o8J4edYQzFBZbYT1WicEmVFJTupidU6gK8jtcSj2ljWjjEJWLKQqKfoIftXR6wlNG2BQjQ0N5RH1P5/DNyLlFgtfwCe7LrJbnCQ9T0gTzw7yIwm/LU94vQ6y+876UJMPQv4lZX7C6Csu+njC/DlCiUqSkTbz/xM1BiFqzS7Z4OaOyNCbkf/nFS5VHTvl3ve3efw5ZZ7yd83jMbUOmfR3zlKeElU4Q8zEePstJHdkyTB7yKkVKkmHIm4ZlFq6Tz0a8SpGSzK8n+P/4BDL91RXNAVX3AAAAAElFTkSuQmCC';
 
+    // list of currently active toolbar icons 
+    this.icons = [];
+    this.pressed = [];
+
+    // click handler
+    this.handler = null;
+
+    // toolbar icon grid
     this.ii = 2;
     this.jj = 5;
 
     this.element = document.getElementById(id);
     this.ctx = this.element.getContext('2d');
 
+    // back buffer for drawing the toolbar icons
     this.backbuffer = document.createElement('canvas');
     this.backbuffer.width = this.ii * 18;
     this.backbuffer.height = this.jj * 18;
@@ -649,24 +663,53 @@ class Toolbar
       this.draw();
     });
 
-    this.element.addEventListener('mousedown', (e) => {
-      // check palette
-      var bw = this.element.width >> 1; // w/2
-      var bh = this.element.height >> 4; // h/16
-      var cx = Math.floor(e.offsetX / bw);
-      var cy = Math.floor(e.offsetY / bh - 8);
-      if (cx >= 0 && cx <= 1 && cy >= 0 && cy <= 7) {
-        if (e.buttons === 1)
-          fg = cx * 8 + cy;
-        if (e.buttons === 2)
-          bg = cx * 8 + cy;
-        this.draw();
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    });
+    this.element.addEventListener('mousedown', this.handleEvent);
+    this.element.addEventListener('mouseup', this.handleEvent);
+  }
 
-    this.draw();
+  setIcons(icons) {
+    this.icons = icons;
+    this.pressed = new Array(this.icons.length);
+  }
+
+  setHandler(handler) {
+    this.handler = handler;
+  }
+
+  handleEvent(e) {
+    // check palette
+    var bw = this.element.width >> 1; // w/2
+    var bh = this.element.height >> 4; // h/16
+    var cx = Math.floor(e.offsetX / bw);
+    var cy = Math.floor(e.offsetY / bh - 8);
+    if (cx >= 0 && cx <= 1 && cy >= 0 && cy <= 7) {
+      if (e.buttons === 1)
+        fg = cx * 8 + cy;
+      if (e.buttons === 2)
+        bg = cx * 8 + cy;
+      this.draw();
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
+    // check toolbar icons
+    bw = this.element.width / this.ii;
+    bh = bw;
+    cx = Math.floor(e.offsetX / bw);
+    cy = Math.floor(e.offsetY / bh);
+    var c = cx + cy * this.ii;
+    if (c < this.icons.length && e.buttons === 1) {
+      if (e.type === 'mousedown') {
+        this.pressed[c] = true;
+        this.draw();
+      } else if (e.type === 'mouseup') {
+        this.pressed[c] = false;
+        if (this.handler)
+          this.handler(c);
+        this.draw();
+      }
+    }
   }
 
   color(i) {
@@ -706,9 +749,12 @@ class Toolbar
 
     // draw icons
     var ctx = this.backctx;
+    ctx.beginPath();
+    ctx.clearRect(0, 0, this.ii*18, this.jj*18);
     for (i = 0; i < this.ii; ++i)
       for (j = 0; j < this.jj; ++j) {
         c = i + j * this.ii;
+        if (c >= this.icons.length) continue;
         // background
         ctx.fillStyle = '#777';
         ctx.fillRect(i*18, j*18, 18, 18);
@@ -718,18 +764,25 @@ class Toolbar
         ctx.moveTo(i*18 + 0.5, j*18 + 16.5);
         ctx.lineTo(i*18 + 0.5, j*18 + 0.5);
         ctx.lineTo(i*18 + 16.5, j*18 + 0.5);
-        ctx.strokeStyle = '#aaa';
+        if (this.pressed[c])
+          ctx.strokeStyle = '#444';
+        else
+          ctx.strokeStyle = '#aaa';
         ctx.stroke();
         // shadow
         ctx.beginPath();
         ctx.moveTo(i*18 + 1.5, j*18 + 17.5);
         ctx.lineTo(i*18 + 17.5, j*18 + 17.5);
         ctx.lineTo(i*18 + 17.5, j*18 + 1.5);
-        ctx.strokeStyle = '#444';
+        if (this.pressed[c])
+          ctx.strokeStyle = '#aaa';
+        else
+          ctx.strokeStyle = '#444';
         ctx.stroke();
+        // insert icon
+        ctx.drawImage(this.img, 0, this.icons[c] * 16, 16, 16, i*18 + 1, j * 18 + 1, 16, 16);
       }
     var sh = Math.floor((w*this.jj)/this.ii);
-    console.log(w, sh);
     this.ctx.imageSmoothingEnabled = false;
     this.ctx.drawImage(this.backbuffer, 0, 0, this.ii*18, this.jj*18, 0, 0, w, sh);
   }
@@ -737,6 +790,15 @@ class Toolbar
 
 // instantiate Toolbar on canvas#toolbar
 var toolbar = new Toolbar('toolbar');
+toolbar.setIcons([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13]);
+toolbar.setHandler((c) => {
+  for (i = 0; i < commands.length; ++i)
+    if (c === commands[i][1]) {
+      commands[i][2]();
+      return;
+    }
+});
+toolbar.draw();
 
 // import image
 function importImage(img)
@@ -749,7 +811,6 @@ function importImage(img)
   var rx = img.width / importcanvas.width, ry = img.height / importcanvas.height;
   // shrink to canvas preseving aspect ratio, but never enlarge
   var rr = Math.max(1.0, Math.max(rx, ry));
-  console.log(rx,ry,rr);
 
   // scaled width and height, copy image to import canvas
   var sw = Math.floor(img.width / rr), sh = Math.floor(img.height / rr);
@@ -837,17 +898,13 @@ function importImage(img)
   redraw();
 }
 
-// Setup the dnd listeners.
-canvas.addEventListener('dragover', (e) => {
+function fileUploadHandler(e, targetFiles) {
   e.stopPropagation();
   e.preventDefault();
-  e.dataTransfer.dropEffect = 'copy';
-});
-canvas.addEventListener('drop', (e) => {
-  e.stopPropagation();
-  e.preventDefault();
+  
+  printEvent(e);
 
-  var files = e.dataTransfer.files;
+  var files = targetFiles || e.dataTransfer.files;
   if (files.length > 1) {
     alert("Drop one file at a time.");
     return;
@@ -865,7 +922,15 @@ canvas.addEventListener('drop', (e) => {
   var reader = new FileReader();
   reader.onload = (e) => { img.src = e.target.result; };
   reader.readAsDataURL(file);
+}
+
+// Setup the dnd listeners.
+canvas.addEventListener('dragover', (e) => {
+  e.stopPropagation();
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'copy';
 });
+canvas.addEventListener('drop', fileUploadHandler);
 
 // set viewport
 setZoom(2);
