@@ -666,8 +666,8 @@ class Toolbar
       this.draw();
     });
 
-    this.element.addEventListener('mousedown', this.handleEvent);
-    this.element.addEventListener('mouseup', this.handleEvent);
+    this.element.addEventListener('mousedown', this.handleMouseEvent);
+    this.element.addEventListener('mouseup', this.handleMouseEvent);
   }
 
   setIcons(icons) {
@@ -679,17 +679,37 @@ class Toolbar
     this.handler = handler;
   }
 
-  handleEvent(e) {
-    // check palette
+  iconAt(x,y) {
+    var b = this.element.width / this.ii;
+    var cx = Math.floor(x / b);
+    var cy = Math.floor(y / b);
+    if (cx >= 0 && cx <= this.ii && cy >= 0 && cy <= this.jj) {
+      var c = cx + cy * this.ii;
+      if (c < this.icons.length)
+        return c;
+    }
+    return undefined;
+  }
+
+  colorAt(x,y) {
     var bw = this.element.width >> 1; // w/2
     var bh = this.element.height >> 4; // h/16
-    var cx = Math.floor(e.offsetX / bw);
-    var cy = Math.floor(e.offsetY / bh - 8);
+    var cx = Math.floor(x / bw);
+    var cy = Math.floor(y / bh - 8);
     if (cx >= 0 && cx <= 1 && cy >= 0 && cy <= 7) {
+      return cx * 8 + cy;
+    }
+    return undefined;
+  }
+
+  handleMouseEvent(e) {
+    // check palette
+    var color = colorAt(e.offsetX, e.offsetY);
+    if (color !== undefined) {
       if (e.buttons === 1)
-        fg = cx * 8 + cy;
+        fg = color;
       if (e.buttons === 2)
-        bg = cx * 8 + cy;
+        bg = color;
       this.draw();
       e.preventDefault();
       e.stopPropagation();
@@ -697,19 +717,15 @@ class Toolbar
     }
 
     // check toolbar icons
-    bw = this.element.width / this.ii;
-    bh = bw;
-    cx = Math.floor(e.offsetX / bw);
-    cy = Math.floor(e.offsetY / bh);
-    var c = cx + cy * this.ii;
-    if (c < this.icons.length && e.buttons === 1) {
+    var icon = iconAt(e.offsetX, e.offsetY);
+    if (icon !== undefined) {
       if (e.type === 'mousedown') {
-        this.pressed[c] = true;
+        this.pressed[icon] = true;
         this.draw();
       } else if (e.type === 'mouseup') {
-        this.pressed[c] = false;
+        this.pressed[icon] = false;
         if (this.handler)
-          this.handler(c);
+          this.handler(icon);
         this.draw();
       }
     }
