@@ -157,6 +157,9 @@ var frontctx = canvas.getContext('2d');
 // rendering block buffer
 var bbuf = ctx.createImageData(8, 8);
 
+// scrolling viewport
+var viewport = document.getElementById('viewport');
+
 // draw gridlines?
 var grid = true;
 
@@ -588,7 +591,7 @@ function processTouchEvent(e)
   //dspan2.innerText = 'pte ';
   if (isSPen(e)) {
     // pen draws with FG
-    touchOrHover(tt[0].pageX, tt[0].pageY, 1);
+    touchOrHover(tt[0].pageX + viewport.scrollLeft, tt[0].pageY + viewport.scrollTop, 1);
     e.preventDefault();
     e.stopPropagation();
   }
