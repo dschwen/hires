@@ -666,8 +666,14 @@ class Toolbar
       this.draw();
     });
 
-    this.element.addEventListener('mousedown', this.handleMouseEvent);
-    this.element.addEventListener('mouseup', this.handleMouseEvent);
+    // mouse
+    this.element.addEventListener('mousedown', (e) => { this.handleMouseEvent(e); });
+    this.element.addEventListener('mouseup', (e) => { this.handleMouseEvent(e); });
+
+    // touches
+    this.activetouches = [];
+    this.element.addEventListener('touchstart', (e) => { this.handleTouchEvent(e); });
+    this.element.addEventListener('touchend', (e) => { this.handleTouchEvent(e); });
   }
 
   setIcons(icons) {
@@ -704,7 +710,7 @@ class Toolbar
 
   handleMouseEvent(e) {
     // check palette
-    var color = colorAt(e.offsetX, e.offsetY);
+    var color = this.colorAt(e.offsetX, e.offsetY);
     if (color !== undefined) {
       if (e.buttons === 1)
         fg = color;
@@ -717,7 +723,7 @@ class Toolbar
     }
 
     // check toolbar icons
-    var icon = iconAt(e.offsetX, e.offsetY);
+    var icon = this.iconAt(e.offsetX, e.offsetY);
     if (icon !== undefined) {
       if (e.type === 'mousedown') {
         this.pressed[icon] = true;
@@ -728,6 +734,63 @@ class Toolbar
           this.handler(icon);
         this.draw();
       }
+    }
+  }
+
+  handleTouchEvent(e) {
+    var ct, i, j, x, y, c;
+    var at = this.activetouches;
+    var rect = this.element.getBoundingClientRect();
+
+    e.stopPropagation();
+    e.preventDefault();
+
+    // start touch
+    if (e.type === 'touchstart') {
+      if (at.length === 0) {
+        ct = e.changedTouches;
+        for (i = 0; i < ct.length; ++i) {
+          x = ct[i].clientX - rect.left;
+          y = ct[i].clientY - rect.top;
+          // color?
+          c = this.colorAt(x,y);
+          if (c !== undefined) {
+            fg = c;
+            this.draw();
+            return
+          }
+
+          // icon?
+          c = this.iconAt(x,y);
+          if (c !== undefined) {
+            at.push({'id': ct[id].identifier, 'icon': iconAt(x,y)});
+            this.pressed[c] = true;
+            return;
+          }
+        }
+        this.draw();
+      }
+    }
+
+    // end touch
+    else if (e.type === 'touchend') {
+      // loop over lifted touches
+      for (j = 0; j < ct.length; ++j) {
+        // loop recorded active touches that started on icons
+        for (i = 0; i < at.length; ++i) {
+          // check if any of the lifted touch matches active touch
+          if (ct[j].identifier === at[i].id) {
+            // remove active touch
+            this.pressed[at[i].icon] = false;
+            if (this.hander) {
+              this.handler(at[i].icon);
+            }
+            at.splice(i, 1);
+            break;
+          }
+        }
+      }
+      this.draw();
     }
   }
 
