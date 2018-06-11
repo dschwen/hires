@@ -347,7 +347,10 @@ function restoreImage(data)
   //nby = buf[1];
 
   // only restore if the size matches!
-  if (nbx != buf[0] || nby != buf[1]) return;
+  if (nbx != buf[0] || nby != buf[1]) {
+    image = Array.apply(null, Array(nbx * nby)).map(() => {return new Block();});
+    return;
+  }
 
   var i, j, blocks = nbx * nby;
   var size =  blocks * 9 + 2;
