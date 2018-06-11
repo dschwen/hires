@@ -638,10 +638,6 @@ window.addEventListener('beforeunload', (e) => {
 class Toolbar
 {
   constructor(id) {
-    // spritesheet for the tool bar icons
-    this.img = new Image();
-    this.img.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAEAAQMAAACAnGQNAAAABlBMVEUaJTGAgIBxkqdpAAABFElEQVQoz92RMU7DQBBFn8QBOEoOQOGDcABKjuCSgoIj5AiUFBRGUKSgcAGSJUS0QZZwEYVVtEbGsp3lLw6RHeACSF+jmf//zO5o8J4edYQzFBZbYT1WicEmVFJTupidU6gK8jtcSj2ljWjjEJWLKQqKfoIftXR6wlNG2BQjQ0N5RH1P5/DNyLlFgtfwCe7LrJbnCQ9T0gTzw7yIwm/LU94vQ6y+876UJMPQv4lZX7C6Csu+njC/DlCiUqSkTbz/xM1BiFqzS7Z4OaOyNCbkf/nFS5VHTvl3ve3efw5ZZ7yd83jMbUOmfR3zlKeElU4Q8zEePstJHdkyTB7yKkVKkmHIm4ZlFq6Tz0a8SpGSzK8n+P/4BDL91RXNAVX3AAAAAElFTkSuQmCC';
-
     // list of currently active toolbar icons 
     this.icons = [];
     this.pressed = [];
@@ -674,6 +670,11 @@ class Toolbar
     this.activetouches = [];
     this.element.addEventListener('touchstart', (e) => { this.handleTouchEvent(e); });
     this.element.addEventListener('touchend', (e) => { this.handleTouchEvent(e); });
+
+    // spritesheet for the tool bar icons
+    this.img = new Image();
+    this.img.onload = (e) => { this.draw(); };
+    this.img.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAEAAQMAAACAnGQNAAAABlBMVEUaJTGAgIBxkqdpAAABFElEQVQoz92RMU7DQBBFn8QBOEoOQOGDcABKjuCSgoIj5AiUFBRGUKSgcAGSJUS0QZZwEYVVtEbGsp3lLw6RHeACSF+jmf//zO5o8J4edYQzFBZbYT1WicEmVFJTupidU6gK8jtcSj2ljWjjEJWLKQqKfoIftXR6wlNG2BQjQ0N5RH1P5/DNyLlFgtfwCe7LrJbnCQ9T0gTzw7yIwm/LU94vQ6y+876UJMPQv4lZX7C6Csu+njC/DlCiUqSkTbz/xM1BiFqzS7Z4OaOyNCbkf/nFS5VHTvl3ve3efw5ZZ7yd83jMbUOmfR3zlKeElU4Q8zEePstJHdkyTB7yKkVKkmHIm4ZlFq6Tz0a8SpGSzK8n+P/4BDL91RXNAVX3AAAAAElFTkSuQmCC';
   }
 
   setIcons(icons) {
@@ -738,8 +739,9 @@ class Toolbar
   }
 
   handleTouchEvent(e) {
-    var ct, i, j, x, y, c;
+    var i, j, x, y, c;
     var at = this.activetouches;
+    var ct = e.changedTouches;
     var rect = this.element.getBoundingClientRect();
 
     e.stopPropagation();
@@ -763,9 +765,8 @@ class Toolbar
           // icon?
           c = this.iconAt(x,y);
           if (c !== undefined) {
-            at.push({'id': ct[id].identifier, 'icon': iconAt(x,y)});
+            at.push({'id': ct[i].identifier, 'icon': c});
             this.pressed[c] = true;
-            return;
           }
         }
         this.draw();
