@@ -127,7 +127,16 @@ class ViewPort {
 }
 
 // size of canvas in blocks
-var nbx = 320/8, nby = 200/8;
+var nbx, nby;
+var urlmatch = /#(\d+)x(\d+)blocks/.exec(document.location.hash);
+console.log(urlmatch);
+if (urlmatch) {
+  nbx = parseInt(urlmatch[1], 10);
+  nby = parseInt(urlmatch[2], 10);
+} else {
+  nbx = 320/8;
+  nby = 200/8;
+}
 
 // image data
 var image;
@@ -135,7 +144,7 @@ var image;
 // restore image or set up new empty image
 (function() {
   var data = window.localStorage.getItem('current_image');
-  if (data) {
+  if (data && !urlmatch) {
     // restore from localStorage
     restoreImage(data);
   } else {
