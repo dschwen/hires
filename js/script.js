@@ -511,10 +511,10 @@ var commands = [
     var r = c.requestFullscreen || c.webkitRequestFullscreen || c.mozRequestFullscreen || null;
     if (r) r();
   }],
-  ['g', 11, () => { grid = !grid; updateFrontBuffer(); }],
+  ['g', 12, () => { grid = !grid; updateFrontBuffer(); toolbar.pressed[12] = grid; }],
   ['R', null, () => { saveHistory(); randomize(); redraw(); }],
-  ['+',  9, () => { setZoom(zoom + 1); }],
-  ['-', 10, () => { setZoom(zoom - 1); }]
+  ['+', 10, () => { setZoom(zoom + 1); }],
+  ['-', 11, () => { setZoom(zoom - 1); }]
 ];
 
 // add keyboard event listener
@@ -648,7 +648,7 @@ class Toolbar
 
     // toolbar icon grid
     this.ii = 2;
-    this.jj = 6;
+    this.jj = 7;
 
     this.element = document.getElementById(id);
     this.ctx = this.element.getContext('2d');
@@ -675,12 +675,13 @@ class Toolbar
     // spritesheet for the tool bar icons
     this.img = new Image();
     this.img.onload = (e) => { this.draw(); };
-    this.img.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAEAAQMAAACAnGQNAAAABlBMVEUaJTGAgIBxkqdpAAABFElEQVQoz92RMU7DQBBFn8QBOEoOQOGDcABKjuCSgoIj5AiUFBRGUKSgcAGSJUS0QZZwEYVVtEbGsp3lLw6RHeACSF+jmf//zO5o8J4edYQzFBZbYT1WicEmVFJTupidU6gK8jtcSj2ljWjjEJWLKQqKfoIftXR6wlNG2BQjQ0N5RH1P5/DNyLlFgtfwCe7LrJbnCQ9T0gTzw7yIwm/LU94vQ6y+876UJMPQv4lZX7C6Csu+njC/DlCiUqSkTbz/xM1BiFqzS7Z4OaOyNCbkf/nFS5VHTvl3ve3efw5ZZ7yd83jMbUOmfR3zlKeElU4Q8zEePstJHdkyTB7yKkVKkmHIm4ZlFq6Tz0a8SpGSzK8n+P/4BDL91RXNAVX3AAAAAElFTkSuQmCC';
+    this.img.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAEAAQMAAACAnGQNAAAABlBMVEUaJTGAgIBxkqdpAAABPUlEQVQoz62SMU7DMBiFn9QDcJQegCFH4AAMjIwcwWwMDByhR2BkYAiCoQODkUCKhIgMikSGqHUrB4UoSc37SaiS0jIhPVnvf//n37EceI9WZQBnkFrYAtbD0hjYEAW7Go3CmqSKFMkdnEY5QR2gVrLSM0lTpO0EP9jS8AiPPIDVMAQq5Pso79E4+GpAdgrhOXwM9w1zy8sYjxPoEOYX/BrI1+Yn+LiUtfjxbckWgT6/UlheYHYll30/RnwtomHJkK2V2jziZiQrr9mEnd7OUFhURvwunjm7ZEiSX++tN75nD8sI83M8HeK2QsT7OsQazyFmfAKFz+HwaQLtEGUyuZ+zZMgWgX5uKmSRvE4yHeQsGbJlhk+wUPL0sRE9HHWGyeIAPoLP4N0W3hgR+db8wc+t6HTUmV1+y1/xz/oCaavHSFEtAnoAAAAASUVORK5CYII=';
   }
 
   setIcons(icons) {
     this.icons = icons;
     this.pressed = new Array(this.icons.length);
+    this.deactivated = new Array(this.icons.length);
   }
 
   setHandler(handler) {
@@ -726,7 +727,7 @@ class Toolbar
 
     // check toolbar icons
     var icon = this.iconAt(e.offsetX, e.offsetY);
-    if (icon !== undefined) {
+    if (icon !== undefined && !this.deactivated[icon]) {
       if (e.type === 'mousedown') {
         this.pressed[icon] = true;
         this.draw();
@@ -765,7 +766,7 @@ class Toolbar
 
           // icon?
           c = this.iconAt(x,y);
-          if (c !== undefined) {
+          if (c !== undefined && !this.deactivated[c]) {
             at.push({'id': ct[i].identifier, 'icon': c});
             this.pressed[c] = true;
           }
@@ -865,6 +866,11 @@ class Toolbar
         ctx.stroke();
         // insert icon
         ctx.drawImage(this.img, 0, this.icons[c] * 16, 16, 16, i*18 + 1, j * 18 + 1, 16, 16);
+        // gray out if deactivated
+        if (this.deactivated[c]) {
+          ctx.fillStyle = 'rgba(127, 127, 127, 0.5)';
+          ctx.fillRect(i*18, j*18, 18, 18);
+        }
       }
     var sh = Math.floor((w*this.jj)/this.ii);
     this.ctx.imageSmoothingEnabled = false;
@@ -882,6 +888,10 @@ toolbar.setHandler((c) => {
       return;
     }
 });
+toolbar.pressed[4] = minimal_pixel_change;
+toolbar.pressed[12] = grid;
+toolbar.deactivated[5] = true;
+toolbar.deactivated[9] = true;
 toolbar.draw();
 
 // import image
