@@ -144,7 +144,7 @@ var image;
 // restore image or set up new empty image
 (function() {
   var data = window.localStorage.getItem('current_image');
-  if (data && !urlmatch) {
+  if (data) {
     // restore from localStorage
     restoreImage(data);
   } else {
@@ -343,8 +343,11 @@ function restoreImage(data)
 {
   var buf = new Uint8Array(JSON.parse('[' + window.atob(data) + ']'));
   // header (width and height)
-  nbx = buf[0];
-  nby = buf[1];
+  //nbx = buf[0];
+  //nby = buf[1];
+
+  // only restore if the size matches!
+  if (nbx != buf[0] || nby != buf[1]) return;
 
   var i, j, blocks = nbx * nby;
   var size =  blocks * 9 + 2;
