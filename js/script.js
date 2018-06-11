@@ -1,7 +1,7 @@
 // color mode. If this is true setting a third color will recolor the block so that
 // the smallest number of pixels is changed, otherwise it will recolor all pixels
 // with the same coloer as the pixel underneath the pointer (MultiPaint default))
-var minmal_pixel_change = true;
+var minimal_pixel_change = true;
 
 // import using dithering?
 var dithering = false;
@@ -68,7 +68,7 @@ class Block {
     }
     else {
       // some pixels are set, some are not. Proceed depending on the color change model
-      if (minmal_pixel_change) {
+      if (minimal_pixel_change) {
         // try to set with recoloring as few pixels as possible
         if (sum <= 32) {
           if (is_set) {
@@ -494,7 +494,7 @@ var commands = [
     input.click();
   }],
   ['y',  3, () => { redo(); redraw(); }],
-  ['b',  4, () => { minmal_pixel_change = !minmal_pixel_change; } ],
+  ['b',  4, () => { minimal_pixel_change = !minimal_pixel_change; toolbar.pressed[4] = minimal_pixel_change; } ],
   ['p',  8, () => {
     if (palette === murky_palette)
       palette = lively_palette;
@@ -503,9 +503,8 @@ var commands = [
     redraw();
     toolbar.draw();
   }],
-  ['f',  9, () => {
+  ['f',  /*9*/ null, () => {
     // go fullscreen
-    console.log('fullscreen');
     var c = document.getElementById('container');
     var r = c.requestFullscreen || c.webkitRequestFullscreen || c.mozRequestFullscreen || null;
     if (r) r();
@@ -783,7 +782,7 @@ class Toolbar
           if (ct[j].identifier === at[i].id) {
             // remove active touch
             this.pressed[at[i].icon] = false;
-            if (this.hander) {
+            if (this.handler) {
               this.handler(at[i].icon);
             }
             at.splice(i, 1);
