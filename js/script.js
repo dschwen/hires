@@ -422,13 +422,13 @@ function filterHostObject(e)
     }
     else {
       t = typeof e[key];
-      if (t==='number' || t==='string' || t==='boolean' ) {
+      if (t === 'number' || t === 'string' || t === 'boolean' ) {
         o[key] = e[key];
       }
-      else if (t==='object') {
+      else if (t === 'object') {
         o[key] = filterHostObject(e[key]);
       }
-      else if (t==='array') {
+      else if (t === 'array') {
         o[key] = [];
         a = filterHostObject(e[key]);
         for (i in a)
@@ -449,7 +449,7 @@ function printEvent(e)
 
   var n = estat[e.type] || 0;
   estat[e.type] = n + 1;
-  
+
   //dspan2.innerText = JSON.stringify(estat, (k,v) => {return v;}, ' ');
   console.log(JSON.stringify(estat, (k,v) => {return v;}, ' '));
 }
@@ -480,10 +480,12 @@ function restoreBlocks()
 var commands = [
   ['d',  0, () => { tool = 0; }],
   ['D', null, () => { dithering = !dithering; }],
-  [null, 1, () => {
+  ['s',  6, () => {
     restoreBlocks();
-    this.href = backbuffer.toDataURL("image/png");
-    this.download = 'untitled.png';
+    var link = document.createElement('a');
+    link.href = backbuffer.toDataURL("image/png");
+    link.download = 'untitled.png';
+    link.click();
   }],
   ['C',  1, () => { saveHistory(); clear(); redraw(); }],
   ['u',  2, () => { undo(); redraw(); }],
@@ -533,7 +535,7 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-function touchOrHover(x, y, button) 
+function touchOrHover(x, y, button)
 {
   var pxn = Math.floor(x / (1 << zoom));
   var pyn = Math.floor(y / (1 << zoom));
@@ -637,7 +639,7 @@ window.addEventListener('beforeunload', (e) => {
 class Toolbar
 {
   constructor(id) {
-    // list of currently active toolbar icons 
+    // list of currently active toolbar icons
     this.icons = [];
     this.pressed = [];
 
@@ -646,7 +648,7 @@ class Toolbar
 
     // toolbar icon grid
     this.ii = 2;
-    this.jj = 5;
+    this.jj = 6;
 
     this.element = document.getElementById(id);
     this.ctx = this.element.getContext('2d');
@@ -797,7 +799,7 @@ class Toolbar
   color(i) {
     return 'rgb(' + palette[i].red + ',' + palette[i].green + ',' + palette[i].blue + ')';
   }
-  
+
   draw() {
     var i, j, c;
     var w = this.element.offsetWidth, h = this.element.offsetHeight;
@@ -983,7 +985,7 @@ function importImage(img)
 function fileUploadHandler(e, targetFiles) {
   e.stopPropagation();
   e.preventDefault();
-  
+
   printEvent(e);
 
   var files = targetFiles || e.dataTransfer.files;
@@ -1017,4 +1019,3 @@ canvas.addEventListener('drop', fileUploadHandler);
 // set viewport
 setZoom(2);
 redraw();
-
