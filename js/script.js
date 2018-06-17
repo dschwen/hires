@@ -570,8 +570,8 @@ document.addEventListener('keydown', (e) => {
 
 function touchOrHover(x, y, button)
 {
-  var pxn = Math.floor(x / (1 << zoom)) - 1;
-  var pyn = Math.floor(y / (1 << zoom)) - 1;
+  var pxn = Math.floor((x - 1) / (1 << zoom));
+  var pyn = Math.floor((y - 1)/ (1 << zoom));
 
   // mouse has not moved
   if (button === button_old && pxn === px && pyn === py)
