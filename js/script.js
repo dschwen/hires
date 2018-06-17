@@ -26,6 +26,11 @@ class Block {
     this.pix.fill(0);
   }
 
+  fillBlock(color) {
+    this.clear();
+    this.bg = color;
+  }
+
   random() {
     this.fg = Math.floor(Math.random() * 16);
     this.bg = Math.floor(Math.random() * 16);
@@ -303,6 +308,19 @@ function redraw()
 }
 
 // set a pixel at given coordinates using an block object
+function fillBlock(px, py, color, draw) {
+  var bx = px >> 3, by = py >> 3;
+  var block;
+  if (draw) {
+    block = image[bx + by * nbx];
+  } else {
+    block = new Block(image[bx + by * nbx]);
+  }
+  block.fillBlock(color);
+  drawBlock(bx, by, block);
+}
+
+// set a pixel at given coordinates using an block object
 function setPixel(px, py, color, draw) {
   var bx = px >> 3, by = py >> 3;
   var block;
@@ -406,7 +424,7 @@ function saveHistory() {
 var zoom;
 function setZoom(z)
 {
-  if (zoom !== z) {
+  if (zoom !== z && z >= 0) {
     zoom = z;
     canvas.width = backbuffer.width * (1 << zoom);
     canvas.height = backbuffer.height * (1 << zoom);
@@ -486,14 +504,14 @@ function saveBlock(px, py) {
 function restoreBlocks()
 {
   var i;
-  for (i=0; i<restore.length; ++i)
+  for (i = 0; i < restore.length; ++i)
     drawBlock(restore[i].x, restore[i].y, image[restore[i].x + restore[i].y * nbx]);
   restore = [];
 }
 
 // toolbar and hotkeys
 var commands = [
-  ['d',  0, () => { tool = 0; }],
+  ['d',  0, () => { tool = (tool + 1) % 2; }],
   ['D', null, () => { dithering = !dithering; }],
   ['s',  6, () => {
     restoreBlocks();
@@ -552,11 +570,15 @@ document.addEventListener('keydown', (e) => {
 
 function touchOrHover(x, y, button)
 {
-  var pxn = Math.floor(x / (1 << zoom));
-  var pyn = Math.floor(y / (1 << zoom));
+  var pxn = Math.floor(x / (1 << zoom)) - 1;
+  var pyn = Math.floor(y / (1 << zoom)) - 1;
 
   // mouse has not moved
   if (button === button_old && pxn === px && pyn === py)
+    return;
+
+  // out of bounds
+  if (pxn < 0 || pyn < 0 || pxn >= nbx*8 || pyn >= nby*8)
     return;
 
   px = pxn;
@@ -567,15 +589,31 @@ function touchOrHover(x, y, button)
     if (button === 0) { // preview
       restoreBlocks();
       saveBlock(px, py);
-      setPixel(pxn, pyn, fg, false);
+      setPixel(px, py, fg, false);
       updateFrontBuffer();
     }
     else if (button === 1) { // fg
-      setPixel(pxn, pyn, fg, true);
+      setPixel(px, py, fg, true);
       updateFrontBuffer();
     }
     else if (button === 2) { // bg
-      setPixel(pxn, pyn, bg, true);
+      setPixel(px, py, bg, true);
+      updateFrontBuffer();
+    }
+  }
+  else if (tool === 1) { // block draw
+    if (button === 0) { // preview
+      restoreBlocks();
+      saveBlock(px, py);
+      fillBlock(px, py, fg, false);
+      updateFrontBuffer();
+    }
+    else if (button === 1) { // fg
+      fillBlock(px, py, fg, true);
+      updateFrontBuffer();
+    }
+    else if (button === 2) { // bg
+      fillBlock(px, py, bg, true);
       updateFrontBuffer();
     }
   }
@@ -776,7 +814,7 @@ class Toolbar
           if (c !== undefined) {
             fg = c;
             this.draw();
-            return
+            return;
           }
 
           // icon?
