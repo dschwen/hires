@@ -226,9 +226,9 @@ var preview;
 // draw a single Block
 function drawBlock(bx, by, block)
 {
-  var byte, bit, idx = 0, col;
-  for (byte = 0; byte < 8; ++byte)
-    for (bit = 7; bit >= 0; --bit)
+  var idx = 0, col;
+  for (let byte = 0; byte < 8; ++byte)
+    for (let bit = 7; bit >= 0; --bit)
     {
       is_set = block.pix[byte] & (1 << bit);
       if (is_set)
@@ -256,11 +256,9 @@ function updateFrontBuffer()
   // draw gridlines
   if (grid) {
     var space = 8 * (1 << zoom);
-    var bx, by;
-
     frontctx.imageSmoothingEnabled = true;
     frontctx.lineWidth = 0.5;
-    for (bx = 0; bx <= nbx; ++bx) {
+    for (let bx = 0; bx <= nbx; ++bx) {
       frontctx.beginPath();
       frontctx.moveTo(bx * space, 0);
       frontctx.lineTo(bx * space, (nbx+1) * space);
@@ -269,7 +267,7 @@ function updateFrontBuffer()
       frontctx.strokeStyle = 'black';
       frontctx.stroke();
     }
-    for (by = 0; by <= nbx; ++by) {
+    for (let by = 0; by <= nbx; ++by) {
       frontctx.beginPath();
       frontctx.moveTo(0, by * space);
       frontctx.lineTo((nbx+1) * space, by * space);
@@ -284,25 +282,24 @@ function updateFrontBuffer()
 // clear image
 function clear()
 {
-  for (by = 0; by < nby; ++by)
-    for (bx = 0; bx < nbx; ++bx)
+  for (let by = 0; by < nby; ++by)
+    for (let bx = 0; bx < nbx; ++bx)
       image[bx + by * nbx].clear();
 }
 
 // randomize image
 function randomize()
 {
-  for (by = 0; by < nby; ++by)
-    for (bx = 0; bx < nbx; ++bx)
+  for (let by = 0; by < nby; ++by)
+    for (let bx = 0; bx < nbx; ++bx)
       image[bx + by * nbx].random();
 }
 
 // redraw image
 function redraw()
 {
-  var bx, by;
-  for (by = 0; by < nby; ++by)
-    for (bx = 0; bx < nbx; ++bx)
+  for (let by = 0; by < nby; ++by)
+    for (let bx = 0; bx < nbx; ++bx)
       drawBlock(bx, by, image[bx + by * nbx]);
   updateFrontBuffer();
 }
@@ -337,7 +334,7 @@ function setPixel(px, py, color, draw) {
 // serialize image for exporting and emergency save
 function serializeImage()
 {
-  var i, j, blocks = nbx * nby;
+  var blocks = nbx * nby;
   var size =  blocks * 9 + 2;
   buf = new Uint8Array(new ArrayBuffer(size));
   // header (width and height)
@@ -345,12 +342,12 @@ function serializeImage()
   buf[1] = nby;
 
   // serialize fg/bg data
-  for (i = 0; i < blocks; ++i)
+  for (let i = 0; i < blocks; ++i)
     buf[i+2] = image[i].fg + (image[i].bg << 4);
 
   // serialize bitmap data
-  for (i = 0; i < blocks; ++i)
-    for (j = 0; j < 8; ++j)
+  for (let i = 0; i < blocks; ++i)
+    for (let j = 0; j < 8; ++j)
       buf[i*8+j+blocks+2] = image[i].pix[j];
 
   return window.btoa(buf);
@@ -370,7 +367,7 @@ function restoreImage(data)
     return;
   }
 
-  var i, j, blocks = nbx * nby;
+  var blocks = nbx * nby;
   var size =  blocks * 9 + 2;
   if (buf.length != size) {
     alert("Corrupt image data");
@@ -378,14 +375,14 @@ function restoreImage(data)
   image = Array.apply(null, Array(blocks)).map(() => {return new Block();});
 
   // unserialize fg/bg data
-  for (i = 0; i < blocks; ++i) {
+  for (let i = 0; i < blocks; ++i) {
     image[i].fg = buf[i+2] % 16;
     image[i].bg = buf[i+2] >> 4;
   }
 
   // unserialize bitmap data
-  for (i = 0; i < blocks; ++i)
-    for (j = 0; j < 8; ++j)
+  for (let i = 0; i < blocks; ++i)
+    for (let j = 0; j < 8; ++j)
       image[i].pix[j] = buf[i*8+j+blocks+2];
 }
 
@@ -438,12 +435,12 @@ var dspan2 = document.getElementById("debug2");
 var estat = {};
 function filterHostObject(e)
 {
-  var o = {}, t, a, i, key;
+  var o = {};
 
   if (e === null || e === undefined)
     return e;
 
-  for (key in e) {
+  for (let key in e) {
     if (e[key] instanceof Node) {
       o[key] = '((Node))';
     }
@@ -454,7 +451,7 @@ function filterHostObject(e)
       o[key] = '((Function))';
     }
     else {
-      t = typeof e[key];
+      let t = typeof e[key];
       if (t === 'number' || t === 'string' || t === 'boolean' ) {
         o[key] = e[key];
       }
@@ -463,8 +460,8 @@ function filterHostObject(e)
       }
       else if (t === 'array') {
         o[key] = [];
-        a = filterHostObject(e[key]);
-        for (i in a)
+        let a = filterHostObject(e[key]);
+        for (let i in a)
           o[i] = a[i];
       }
       else {
@@ -503,8 +500,7 @@ function saveBlock(px, py) {
 }
 function restoreBlocks()
 {
-  var i;
-  for (i = 0; i < restore.length; ++i)
+  for (let i = 0; i < restore.length; ++i)
     drawBlock(restore[i].x, restore[i].y, image[restore[i].x + restore[i].y * nbx]);
   restore = [];
 }
@@ -560,8 +556,7 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
-  var i;
-  for (i = 0; i < commands.length; ++i)
+  for (let i = 0; i < commands.length; ++i)
     if (e.key === commands[i][0]) {
       commands[i][2]();
       return;
@@ -794,7 +789,7 @@ class Toolbar
   }
 
   handleTouchEvent(e) {
-    var i, j, x, y, c;
+    var x, y, c;
     var at = this.activetouches;
     var ct = e.changedTouches;
     var rect = this.element.getBoundingClientRect();
@@ -806,7 +801,7 @@ class Toolbar
     if (e.type === 'touchstart') {
       if (at.length === 0) {
         ct = e.changedTouches;
-        for (i = 0; i < ct.length; ++i) {
+        for (let i = 0; i < ct.length; ++i) {
           x = ct[i].clientX - rect.left;
           y = ct[i].clientY - rect.top;
           // color?
@@ -831,9 +826,9 @@ class Toolbar
     // end touch
     else if (e.type === 'touchend') {
       // loop over lifted touches
-      for (j = 0; j < ct.length; ++j) {
+      for (let j = 0; j < ct.length; ++j) {
         // loop recorded active touches that started on icons
-        for (i = 0; i < at.length; ++i) {
+        for (let i = 0; i < at.length; ++i) {
           // check if any of the lifted touch matches active touch
           if (ct[j].identifier === at[i].id) {
             // remove active touch
@@ -855,7 +850,7 @@ class Toolbar
   }
 
   draw() {
-    var i, j, c;
+    var c;
     var w = this.element.offsetWidth, h = this.element.offsetHeight;
     var bw = w >> 1; // w/2
     var bh = h >> 4; // h/16
@@ -865,8 +860,8 @@ class Toolbar
     this.element.height = h;
 
     // insert color swaths
-    for (i = 0; i < 2; ++i)
-      for (j = 0; j < 8; ++j) {
+    for (let i = 0; i < 2; ++i)
+      for (let j = 0; j < 8; ++j) {
         c = i * 8 + j;
         if (fg != c && bg != c) {
           this.ctx.fillStyle = this.color(c);
@@ -889,8 +884,8 @@ class Toolbar
     var ctx = this.backctx;
     ctx.beginPath();
     ctx.clearRect(0, 0, this.ii*18, this.jj*18);
-    for (i = 0; i < this.ii; ++i)
-      for (j = 0; j < this.jj; ++j) {
+    for (let i = 0; i < this.ii; ++i)
+      for (let j = 0; j < this.jj; ++j) {
         c = i + j * this.ii;
         if (c >= this.icons.length) continue;
         // background
@@ -935,7 +930,7 @@ class Toolbar
 var toolbar = new Toolbar('toolbar');
 toolbar.setIcons([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13]);
 toolbar.setHandler((c) => {
-  for (i = 0; i < commands.length; ++i)
+  for (let i = 0; i < commands.length; ++i)
     if (c === commands[i][1]) {
       commands[i][2]();
       return;
@@ -965,20 +960,20 @@ function importImage(img)
 
   // set up datastructures
   var dist = new Int32Array(new ArrayBuffer(4 * 16 * 64));
-  var bx, ibx = Math.ceil(sw / 8);
-  var by, iby = Math.ceil(sh / 8);
+  var ibx = Math.ceil(sw / 8);
+  var iby = Math.ceil(sh / 8);
 
   // loop over blocks and color reduce
   var buf;
-  for (bx = 0; bx < ibx; ++bx)
-    for (by = 0; by < iby; ++by)
+  for (let bx = 0; bx < ibx; ++bx)
+    for (let by = 0; by < iby; ++by)
     {
       // get image data for current block
       buf = importctx.getImageData(bx * 8 , by * 8, 8, 8);
 
       // build distance table for all 16 commodore palette entries and 64 pixels in the current block
-      var px, col, i = 0;
-      for (col = 0; col < 16; ++col)
+      var px, i = 0;
+      for (let col = 0; col < 16; ++col)
       {
         var r = palette[col].red;
         var g = palette[col].green;
@@ -991,9 +986,9 @@ function importImage(img)
 
       // find 2-color combination with minimum distance square sum
       var other_color_factor = 0.01;
-      var sum, msum = null, match, c1, c2;
-      for (c1 = 1; c1 < 16; ++c1)
-        for (c2 = 0; c2 < c1; ++c2)
+      var sum, msum = null, match;
+      for (let c1 = 1; c1 < 16; ++c1)
+        for (let c2 = 0; c2 < c1; ++c2)
         {
           // generate metric
           sum = 0;
@@ -1019,14 +1014,14 @@ function importImage(img)
       var dmatch = (r1-r0)*(r1-r0) + (g1-g0)*(g1-g0) + (b1-b0)*(b1-b0);
 
       // loop over block and raster it
-      var x, y, bl = image[bx + by * nbx];
+      var bl = image[bx + by * nbx];
       px = 0;
-      for (y = 0; y < 8; ++y) {
+      for (let y = 0; y < 8; ++y) {
         bl.pix[y] = 0;
-        for (x = 0; x < 8; ++x) {
+        for (let x = 0; x < 8; ++x) {
           bl.pix[y] <<= 1;
-          var d0 = dist[match[0]*64+px];
-          var d1 = dist[match[1]*64+px];
+          let d0 = dist[match[0]*64+px];
+          let d1 = dist[match[1]*64+px];
           if (!dithering || d0 > dmatch || d1 > dmatch) {
             // no dithering
             if (d0 < d1)
