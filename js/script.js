@@ -307,11 +307,15 @@ function redraw()
 // set a pixel at given coordinates using an block object
 function fillBlock(px, py, color, draw) {
   var bx = px >> 3, by = py >> 3;
+  var index = bx + by * nbx;
   var block;
   if (draw) {
     block = image[bx + by * nbx];
   } else {
-    block = new Block(image[bx + by * nbx]);
+    if (!restore.has(index)) {
+      restore.set(index, [bx, by, new Block(image[index])]);
+    }
+    block = restore.get(index)[2];
   }
   block.fillBlock(color);
   drawBlock(bx, by, block);
@@ -320,16 +324,46 @@ function fillBlock(px, py, color, draw) {
 // set a pixel at given coordinates using an block object
 function setPixel(px, py, color, draw) {
   var bx = px >> 3, by = py >> 3;
+  var index = bx + by * nbx;
   var block;
   if (draw) {
     block = image[bx + by * nbx];
   } else {
-    block = new Block(image[bx + by * nbx]);
+    if (!restore.has(index)) {
+      restore.set(index, [bx, by, new Block(image[index])]);
+    }
+    block = restore.get(index)[2];
   }
   block.setPixel(px % 8, py % 8, color);
   drawBlock(bx, by, block);
 }
 
+// draw a line
+function drawLine(r, color, draw) {
+  if (r[0][0] === r[1][0]) {
+    // draw vertical line (special case)
+    for (let y = Math.min(r[0][1], r[1][1]); y <= Math.max(r[0][1], r[1][1]); ++y)
+      setPixel(r[0][0], y, color, draw);
+  } else {
+    // order points by x component
+    r.sort((a,b) => { return a[0] > b[0]; });
+
+    let m = Math.abs((r[1][1] - r[0][1]) / (r[1][0] - r[0][0]));
+    let y = r[0][1], err = 0, del = 1;
+    if (r[1][1] < y) del = -1;
+
+    for (let x = r[0][0]; x <= r[1][0]; ++x) {
+      err += m;
+      do {
+        setPixel(x, y, color, draw);
+        y += del;
+        err--;
+      } while (err > 0 && y != r[1][1]);
+    }
+  }
+
+  redraw();
+}
 
 // serialize image for exporting and emergency save
 function serializeImage()
@@ -493,13 +527,11 @@ var tool = 0;
 // dragging the mouse?
 var dragging = false;
 
+// drag start pixel coords
+var dpx, dpy;
+
 // block list to restore
 var restore = new Map();
-function saveBlock(px, py) {
-  let bx = px >> 3;
-  let by = py >> 3;
-  restore.set(bx + nbx * by, [bx, by]);
-}
 function restoreBlocks()
 {
   for (let [index, coord] of restore)
@@ -510,7 +542,7 @@ function restoreBlocks()
 // toolbar and hotkeys
 var commands = [
   ['d',  0, () => {
-    tool = (tool + 1) % 2;
+    tool = (tool + 1) % 3;
     toolbar.icons[0] = toolicons[tool];
     toolbar.draw();
   }],
@@ -549,38 +581,7 @@ var commands = [
   ['g', 12, () => { grid = !grid; updateFrontBuffer(); toolbar.pressed[12] = grid; }],
   ['R', null, () => { saveHistory(); randomize(); redraw(); }],
   ['+', 10, () => { setZoom(zoom + 1); }],
-  ['-', 11, () => { setZoom(zoom - 1); }],
-  ['X', null, () => {
-    // Bresenham(?) test
-    let r = [[23, 75], [95, 167]];
-
-    if (r[0][0] === r[1][0]) {
-      // draw vertical line (special case)
-      for (let y = Math.min(r[0][1], r[1][1]); y <= Math.max(r[0][1], r[1][1]); ++y)
-        setPixel(r[0][0], y, fg, true);
-    } else {
-      // order points by x component
-      r.sort((a,b) => { return a[0] > b[0]; });
-
-      let m = Math.abs((r[1][1] - r[0][1]) / (r[1][0] - r[0][0]));
-      let y = r[0][1], err = 0, del = 1;
-      if (r[1][1] < y) del = -1;
-
-      setPixel(r[0][0], r[0][1], bg, true);
-      setPixel(r[1][0], r[1][1], bg, true);
-
-      for (let x = r[0][0]; x <= r[1][0]; ++x) {
-        err += m;
-        do {
-          setPixel(x, y, fg, true);
-          y += del;
-          err--;
-        } while (err > 0 && y != r[1][1]);
-      }
-    }
-
-    redraw();
-  }]
+  ['-', 11, () => { setZoom(zoom - 1); }]
 ];
 
 // add keyboard event listener
@@ -615,12 +616,10 @@ function touchOrHover(x, y, button)
 
   px = pxn;
   py = pyn;
-  button_old = button;
 
   if (tool === 0) { // pixel draw
     if (button === 0) { // preview
       restoreBlocks();
-      saveBlock(px, py);
       setPixel(px, py, fg, false);
       updateFrontBuffer();
     }
@@ -636,7 +635,6 @@ function touchOrHover(x, y, button)
   else if (tool === 1) { // block draw
     if (button === 0) { // preview
       restoreBlocks();
-      saveBlock(px, py);
       fillBlock(px, py, fg, false);
       updateFrontBuffer();
     }
@@ -649,6 +647,31 @@ function touchOrHover(x, y, button)
       updateFrontBuffer();
     }
   }
+  else if (tool === 2) { // line
+    if (button === 0) {
+      if (dragging) {
+        drawLine([[dpx, dpy], [px, py]], fg, true);
+        updateFrontBuffer();
+        dragging = false;
+      } else {
+        restoreBlocks();
+        setPixel(px, py, fg, false);
+        updateFrontBuffer();
+      }
+    } else if (button === 1) {
+      if (dragging) {
+        restoreBlocks();
+        drawLine([[dpx, dpy], [px, py]], fg, false);
+        updateFrontBuffer();
+      } else {
+        dpx = px;
+        dpy = py;
+        dragging = true;
+      }
+    }
+  }
+
+  button_old = button;
 }
 
 // process mouse event
@@ -699,7 +722,6 @@ canvas.addEventListener('touchend', (e) => {
   e.stopPropagation();
 });
 canvas.addEventListener('mousedown', (e) => {
-  dragging = true;
   saveHistory();
   processMouseEvent(e);
 });
@@ -707,7 +729,6 @@ canvas.addEventListener('mousemove', (e) => {
   processMouseEvent(e);
 });
 document.addEventListener('mouseup', (e) => {
-  dragging = false;
   e.preventDefault();
   e.stopPropagation();
 });
