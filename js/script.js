@@ -494,20 +494,26 @@ var tool = 0;
 var dragging = false;
 
 // block list to restore
-var restore = [];
+var restore = new Map();
 function saveBlock(px, py) {
-  restore.push({x: (px >> 3), y: (py >> 3)});
+  let bx = px >> 3;
+  let by = py >> 3;
+  restore.set(bx + nbx * by, [bx, by]);
 }
 function restoreBlocks()
 {
-  for (let i = 0; i < restore.length; ++i)
-    drawBlock(restore[i].x, restore[i].y, image[restore[i].x + restore[i].y * nbx]);
-  restore = [];
+  for (let [index, coord] of restore)
+    drawBlock(coord[0], coord[1], image[index]);
+  restore.clear();
 }
 
 // toolbar and hotkeys
 var commands = [
-  ['d',  0, () => { tool = (tool + 1) % 2; }],
+  ['d',  0, () => {
+    tool = (tool + 1) % 2;
+    toolbar.icons[0] = toolicons[tool];
+    toolbar.draw();
+  }],
   ['D', null, () => { dithering = !dithering; }],
   ['s',  6, () => {
     restoreBlocks();
@@ -543,7 +549,38 @@ var commands = [
   ['g', 12, () => { grid = !grid; updateFrontBuffer(); toolbar.pressed[12] = grid; }],
   ['R', null, () => { saveHistory(); randomize(); redraw(); }],
   ['+', 10, () => { setZoom(zoom + 1); }],
-  ['-', 11, () => { setZoom(zoom - 1); }]
+  ['-', 11, () => { setZoom(zoom - 1); }],
+  ['X', null, () => {
+    // Bresenham(?) test
+    let r = [[23, 75], [95, 167]];
+
+    if (r[0][0] === r[1][0]) {
+      // draw vertical line (special case)
+      for (let y = Math.min(r[0][1], r[1][1]); y <= Math.max(r[0][1], r[1][1]); ++y)
+        setPixel(r[0][0], y, fg, true);
+    } else {
+      // order points by x component
+      r.sort((a,b) => { return a[0] > b[0]; });
+
+      let m = Math.abs((r[1][1] - r[0][1]) / (r[1][0] - r[0][0]));
+      let y = r[0][1], err = 0, del = 1;
+      if (r[1][1] < y) del = -1;
+
+      setPixel(r[0][0], r[0][1], bg, true);
+      setPixel(r[1][0], r[1][1], bg, true);
+
+      for (let x = r[0][0]; x <= r[1][0]; ++x) {
+        err += m;
+        do {
+          setPixel(x, y, fg, true);
+          y += del;
+          err--;
+        } while (err > 0 && y != r[1][1]);
+      }
+    }
+
+    redraw();
+  }]
 ];
 
 // add keyboard event listener
@@ -723,7 +760,7 @@ class Toolbar
     // spritesheet for the tool bar icons
     this.img = new Image();
     this.img.onload = (e) => { this.draw(); };
-    this.img.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAEAAQMAAACAnGQNAAAABlBMVEUaJTGAgIBxkqdpAAABPUlEQVQoz62SMU7DMBiFn9QDcJQegCFH4AAMjIwcwWwMDByhR2BkYAiCoQODkUCKhIgMikSGqHUrB4UoSc37SaiS0jIhPVnvf//n37EceI9WZQBnkFrYAtbD0hjYEAW7Go3CmqSKFMkdnEY5QR2gVrLSM0lTpO0EP9jS8AiPPIDVMAQq5Pso79E4+GpAdgrhOXwM9w1zy8sYjxPoEOYX/BrI1+Yn+LiUtfjxbckWgT6/UlheYHYll30/RnwtomHJkK2V2jziZiQrr9mEnd7OUFhURvwunjm7ZEiSX++tN75nD8sI83M8HeK2QsT7OsQazyFmfAKFz+HwaQLtEGUyuZ+zZMgWgX5uKmSRvE4yHeQsGbJlhk+wUPL0sRE9HHWGyeIAPoLP4N0W3hgR+db8wc+t6HTUmV1+y1/xz/oCaavHSFEtAnoAAAAASUVORK5CYII=';
+    this.img.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAEgAQMAAACHMGE7AAAABlBMVEUaJTGAgIBxkqdpAAABb0lEQVQoz32TMU7DMBiFn9QDcASO0AMw5AiMDAyMjBzBbAwMHKFHYGRgSAVDB4YgAYqEqAyKRIaqdasUuVWamvcnbpSUFumT9fz+Zzv2r8A5VCwDZBqpgbEwDoZCw4SwrEYoFOoksSmSR2QRlj2sAqyUjNR00hRptYNrLSl4hMM8gImgGcgxP8LyCUUGl7eSnhCOm3eRlWEu+ejipYcohP4T/gzka+cX+LmV0W50NWWJgWZ+rTC7wfhOLvt9juG9QMEpTZbWavuIfkdGXrMIPV9XsAa5Fr0vT59VZphkvl672vqeA8xiTK7xeoqHHDHvm2EY4T3EmC1QWLQ3HySIMsQj2bnpc0qTJQaavs4xiqU7yaDlc0qTJd1uwVRJ64daeD7zgs70GC6GG8FlO/JaC8xX4p/8xAiXHS/26Tq/OPTwXhV951kkntb765KwRAlrJxQleUkz/3ZSvpLdPVbVJmwf303+FCtPV1M5LG36+wsC3PsxbqaO3AAAAABJRU5ErkJggg==';
   }
 
   setIcons(icons) {
@@ -928,6 +965,7 @@ class Toolbar
 
 // instantiate Toolbar on canvas#toolbar
 var toolbar = new Toolbar('toolbar');
+var toolicons = [0, 14, 15, 17];
 toolbar.setIcons([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13]);
 toolbar.setHandler((c) => {
   for (let i = 0; i < commands.length; ++i)
@@ -938,6 +976,7 @@ toolbar.setHandler((c) => {
 });
 toolbar.pressed[4] = minimal_pixel_change;
 toolbar.pressed[12] = grid;
+toolbar.icons[0] = toolicons[tool];
 toolbar.deactivated[5] = true;
 toolbar.deactivated[9] = true;
 toolbar.draw();
