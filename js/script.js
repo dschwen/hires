@@ -348,21 +348,20 @@ function drawLine(r, color, draw) {
     // order points by x component
     r.sort((a,b) => { return a[0] > b[0]; });
 
-    let m = Math.abs((r[1][1] - r[0][1]) / (r[1][0] - r[0][0]));
-    let y = r[0][1], err = 0, del = 1;
+    let m = Math.abs((r[1][1] - r[0][1] + 1) / (r[1][0] - r[0][0] + 1));
+    let y = r[0][1], err = m/2, del = 1;
     if (r[1][1] < y) del = -1;
 
     for (let x = r[0][0]; x <= r[1][0]; ++x) {
+      setPixel(x, y, color, draw);
       err += m;
-      do {
+      while (err > 0 && y != r[1][1]) {
         setPixel(x, y, color, draw);
         y += del;
         err--;
-      } while (err > 0 && y != r[1][1]);
+      }
     }
   }
-
-  redraw();
 }
 
 // serialize image for exporting and emergency save
