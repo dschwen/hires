@@ -717,8 +717,7 @@ canvas.addEventListener('mousemove', (e) => {
   processMouseEvent(e);
 });
 document.addEventListener('mouseup', (e) => {
-  e.preventDefault();
-  e.stopPropagation();
+  processMouseEvent(e);
 });
 canvas.addEventListener('contextmenu', function(evt) {
   evt.preventDefault();
@@ -1092,8 +1091,6 @@ function fileUploadHandler(e, targetFiles) {
   e.stopPropagation();
   e.preventDefault();
 
-  printEvent(e);
-
   var files = targetFiles || e.dataTransfer.files;
   if (files.length > 1) {
     alert("Drop one file at a time.");
@@ -1107,7 +1104,10 @@ function fileUploadHandler(e, targetFiles) {
   }
 
   var img = new Image();
-  img.onload = () => { importImage(img); };
+  img.onload = () => {
+    saveHistory();
+    importImage(img); 
+  };
 
   var reader = new FileReader();
   reader.onload = (e) => { img.src = e.target.result; };
