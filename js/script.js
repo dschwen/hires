@@ -134,7 +134,6 @@ class ViewPort {
 // size of canvas in blocks
 var nbx, nby;
 var urlmatch = /#(\d+)x(\d+)blocks/.exec(document.location.hash);
-console.log(urlmatch);
 if (urlmatch) {
   nbx = parseInt(urlmatch[1], 10);
   nby = parseInt(urlmatch[2], 10);
@@ -560,12 +559,7 @@ var commands = [
     redraw();
     toolbar.draw();
   }],
-  ['f',  /*9*/ null, () => {
-    // go fullscreen
-    var c = document.getElementById('container');
-    var r = c.requestFullscreen || c.webkitRequestFullscreen || c.mozRequestFullscreen || null;
-    if (r) r();
-  }],
+  ['f',  9, () => { fullscreen.toggle(); }],
   ['g', 12, () => { grid = !grid; updateFrontBuffer(); toolbar.pressed[12] = grid; }],
   ['R', null, () => { saveHistory(); randomize(); redraw(); }],
   ['+', 10, () => { setZoom(zoom + 1); }],
@@ -986,8 +980,13 @@ toolbar.pressed[4] = minimal_pixel_change;
 toolbar.pressed[12] = grid;
 toolbar.icons[0] = toolicons[tool];
 toolbar.deactivated[5] = true;
-toolbar.deactivated[9] = true;
 toolbar.draw();
+
+// fullscreen manager
+var fullscreen = new FullscreenManager('container', (state) => {
+  toolbar.pressed[9] = state;
+  toolbar.draw();
+});
 
 // import image
 function importImage(img)
@@ -1106,7 +1105,7 @@ function fileUploadHandler(e, targetFiles) {
   var img = new Image();
   img.onload = () => {
     saveHistory();
-    importImage(img); 
+    importImage(img);
   };
 
   var reader = new FileReader();
