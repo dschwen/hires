@@ -338,29 +338,18 @@ function setPixel(px, py, color, draw) {
   drawBlock(bx, by, block);
 }
 
-// draw a line
-function drawLine(r, color, draw) {
-  if (r[0][0] === r[1][0]) {
-    // draw vertical line (special case)
-    for (let y = Math.min(r[0][1], r[1][1]); y <= Math.max(r[0][1], r[1][1]); ++y)
-      setPixel(r[0][0], y, color, draw);
-  } else {
-    // order points by x component
-    r.sort((a,b) => { return a[0] > b[0]; });
+// draw a line (http://members.chello.at/easyfilter/bresenham.html)
+function drawLine(x0, y0, x1, y1, color, draw) {
+  let dx =  Math.abs(x1 - x0), sx = (x0 < x1) * 2 - 1;
+  let dy = -Math.abs(y1 - y0), sy = (y0 < y1) * 2 - 1;
+  let err = dx + dy, e2;
 
-    let m = Math.abs((r[1][1] - r[0][1] + 1) / (r[1][0] - r[0][0] + 1));
-    let y = r[0][1], err = m/2, del = 1;
-    if (r[1][1] < y) del = -1;
-
-    for (let x = r[0][0]; x <= r[1][0]; ++x) {
-      setPixel(x, y, color, draw);
-      err += m;
-      while (err > 0 && y != r[1][1]) {
-        setPixel(x, y, color, draw);
-        y += del;
-        err--;
-      }
-    }
+  while (true) {
+    setPixel(x0, y0, color, draw);
+    if (x0 == x1 && y0 == y1) break;
+    e2 = 2 * err;
+    if (e2 >= dy) { err += dy; x0 += sx; }
+    if (e2 <= dx) { err += dx; y0 += sy; }
   }
 }
 
@@ -649,7 +638,7 @@ function touchOrHover(x, y, button)
   else if (tool === 2) { // line
     if (button === 0) {
       if (dragging) {
-        drawLine([[dpx, dpy], [px, py]], fg, true);
+        drawLine(dpx, dpy, px, py, fg, true);
         updateFrontBuffer();
         dragging = false;
       } else {
@@ -660,7 +649,7 @@ function touchOrHover(x, y, button)
     } else if (button === 1) {
       if (dragging) {
         restoreBlocks();
-        drawLine([[dpx, dpy], [px, py]], fg, false);
+        drawLine(dpx, dpy, px, py, fg, false);
         updateFrontBuffer();
       } else {
         dpx = px;
