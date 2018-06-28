@@ -49,12 +49,12 @@ class Block {
 
     // no color change necessary
     if (this.fg == color) {
-      if (!is_set)
+      if (!is_set && this.bg != color)
         this.pix[y] += (1 << (7-x));
       return;
     }
     if (this.bg == color) {
-      if (is_set)
+      if (is_set && this.fg != color)
         this.pix[y] -= (1 << (7-x));
       return;
     }
