@@ -3,8 +3,8 @@
 // with the same coloer as the pixel underneath the pointer (MultiPaint default))
 var minimal_pixel_change = true;
 
-// import using dithering?
-var dithering = false;
+// import using dithering? (0=none, 1=random, 2=floyd-steinberg)
+var dithering = 0;
 
 // block data
 class Block {
@@ -533,7 +533,7 @@ var commands = [
     toolbar.icons[0] = toolicons[tool];
     toolbar.draw();
   }],
-  ['D', null, () => { dithering = !dithering; }],
+  ['D', null, () => { dithering = (dithering + 1) % 3; }],
   ['s',  6, () => {
     restoreBlocks();
     var link = document.createElement('a');
@@ -993,10 +993,12 @@ function importImage(img)
 {
   // image is loaded, copy it to a canvas to resize and process
   var importcanvas = document.createElement("canvas");
-  importcanvas.width = backbuffer.width;
-  importcanvas.height = backbuffer.height;
+  let w = backbuffer.width;
+  let h = backbuffer.height;
+  importcanvas.width = w;
+  importcanvas.height = h;
   var importctx = importcanvas.getContext('2d');
-  var rx = img.width / importcanvas.width, ry = img.height / importcanvas.height;
+  var rx = img.width / w, ry = img.height / h;
   // shrink to canvas preseving aspect ratio, but never enlarge
   var rr = Math.max(1.0, Math.max(rx, ry));
 
@@ -1009,6 +1011,26 @@ function importImage(img)
   var ibx = Math.ceil(sw / 8);
   var iby = Math.ceil(sh / 8);
 
+  // build a distance table for C64 pallette color pairs (floats)
+  var ccdist = new Array(256);
+  if (dithering !== 0)
+    for (let i = 0; i < 16; ++i)
+      for (let j = 0; j <= i; ++j) {
+        let r0 = palette[i].red;
+        let g0 = palette[i].green;
+        let b0 = palette[i].blue;
+        let r1 = palette[j].red;
+        let g1 = palette[j].green;
+        let b1 = palette[j].blue;
+        ccdist[i*16+j] = Math.sqrt((r1-r0)*(r1-r0) + (g1-g0)*(g1-g0) + (b1-b0)*(b1-b0));
+        ccdist[j*16+i] = ccdist[i*16+j];
+      }
+
+  // initialize floyd-steinberg error matrix (if needed)
+  var error = null;
+  if (dithering === 2)
+    error = new Float32Array(new ArrayBuffer(w * h * 4 * 3)); // 4byte/float32 * rgb
+
   // loop over blocks and color reduce
   var buf;
   for (let bx = 0; bx < ibx; ++bx)
@@ -1018,13 +1040,13 @@ function importImage(img)
       buf = importctx.getImageData(bx * 8 , by * 8, 8, 8);
 
       // build distance table for all 16 commodore palette entries and 64 pixels in the current block
-      var px, i = 0;
+      let i = 0;
       for (let col = 0; col < 16; ++col)
       {
-        var r = palette[col].red;
-        var g = palette[col].green;
-        var b = palette[col].blue;
-        for (px = 0; px < 64; ++px)
+        let r = palette[col].red;
+        let g = palette[col].green;
+        let b = palette[col].blue;
+        for (let px = 0; px < 64; ++px)
           dist[i++] = (buf.data[px*4]-r)*(buf.data[px*4]-r) +
                       (buf.data[px*4+1]-g)*(buf.data[px*4+1]-g) +
                       (buf.data[px*4+2]-b)*(buf.data[px*4+2]-b);
@@ -1038,10 +1060,10 @@ function importImage(img)
         {
           // generate metric
           sum = 0;
-          for (px = 0; px < 64; ++px) {
+          for (let px = 0; px < 64; ++px) {
             sum += Math.min(dist[c1*64+px], dist[c2*64+px]);
             // if we are dithering we mix in the disregarded distance as well
-            if (dithering)
+            if (dithering !== 0)
               sum += other_color_factor * Math.max(dist[c1*64+px], dist[c2*64+px]);
           }
           if (msum === null || sum < msum) {
@@ -1051,31 +1073,85 @@ function importImage(img)
         }
 
       // distance between the two matched colors (needed for dithering)
-      var r0 = palette[match[0]].red;
-      var g0 = palette[match[0]].green;
-      var b0 = palette[match[0]].blue;
-      var r1 = palette[match[1]].red;
-      var g1 = palette[match[1]].green;
-      var b1 = palette[match[1]].blue;
-      var dmatch = (r1-r0)*(r1-r0) + (g1-g0)*(g1-g0) + (b1-b0)*(b1-b0);
+      let dmatch = ccdist[match[0]*16 + match[1]];
 
       // loop over block and raster it
       var bl = image[bx + by * nbx];
-      px = 0;
+      let px = 0;
       for (let y = 0; y < 8; ++y) {
         bl.pix[y] = 0;
         for (let x = 0; x < 8; ++x) {
           bl.pix[y] <<= 1;
           let d0 = dist[match[0]*64+px];
           let d1 = dist[match[1]*64+px];
-          if (!dithering || d0 > dmatch || d1 > dmatch) {
+
+          if (dithering === 0 || (dithering === 1 && (d0 > dmatch*dmatch || d1 > dmatch*dmatch))) {
             // no dithering
             if (d0 < d1)
               bl.pix[y]++;
           } else {
-            // random dithering
-            if (Math.random() * (d0 + d1) > d0)
-              bl.pix[y]++;
+            // let sd0 = Math.sqrt(d0);
+            // let sd1 = Math.sqrt(d1);
+
+            if (dithering === 1) {
+              // random dithering
+              // if (Math.random() * (sd0 + sd1) > sd0)
+              if (Math.random() * (d0 + d1) > d0) // crisper
+                bl.pix[y]++;
+            } else if (dithering === 2) {
+              // floyd-steinberg dithering
+              let cx = bx * 8 + x;
+              let cy = by * 8 + y;
+              let eid = cx * 3 + cy * w * 3;
+
+              // compute diffused rgb errors
+              let er = [0, 0, 0];
+              for (let c = 0; c < 3; ++c) {
+                if (cy > 0) {
+                  er[c] += 5.0/16.0 * error[eid - w * 3];
+                  if (cx < w-1) er[c] += 3.0/16.0 * error[eid - w * 3 + 3];
+                  if (cx > 0) er[c] += 3.0/16.0 * error[eid - w * 3 - 3];
+                }
+                if (cx > 0) er[c] += 7.0/16.0 * error[eid - 3];
+
+                // let erramp = 130;
+                // if (er[c] > erramp) er[c] = erramp;
+                // if (er[c] < -erramp) er[c] = -erramp;
+              }
+
+              // compute distance to fg and bg color
+              let fsd = [0, 0];
+              let fer = [0, 0];
+              let feg = [0, 0];
+              let feb = [0, 0];
+              for (let i = 0; i < 2; ++i) {
+                let mr = palette[match[i]].red;
+                let mg = palette[match[i]].green;
+                let mb = palette[match[i]].blue;
+
+                let ir = buf.data[px*4] + er[0];
+                let ig = buf.data[px*4 + 1] + er[1];
+                let ib = buf.data[px*4 + 2] + er[2];
+
+                fsd[i] = (mr-ir)*(mr-ir) + (mg-ig)*(mg-ig) + (mb-ib)*(mb-ib);
+                // error associated with match i
+                fer[i] = ir - mr;
+                feg[i] = ig - mg;
+                feb[i] = ib - mb;
+              }
+
+              if (fsd[0] < fsd[1]) {
+                bl.pix[y]++;
+                error[eid] = fer[0];
+                error[eid+1] = feg[0];
+                error[eid+2] = feb[0];
+              }
+              else {
+                error[eid] = fer[1];
+                error[eid+1] = feg[1];
+                error[eid+2] = feb[1];
+              }
+            }
           }
           px++;
         }
