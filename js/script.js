@@ -352,7 +352,7 @@ function drawLine(x0, y0, x1, y1, color, draw) {
   }
 }
 
-// draw a circle
+// draw a circle (http://members.chello.at/easyfilter/bresenham.html)
 function drawCircle(xm, ym, xc, yc, color, draw)
 {
   let r = Math.floor(Math.sqrt((xm-xc)*(xm-xc)+(ym-yc)*(ym-yc)))
@@ -366,6 +366,36 @@ function drawCircle(xm, ym, xc, yc, color, draw)
     if (r <= y) err += ++y*2+1;           /* e_xy+e_y < 0 */
     if (r > x || err > y) err += ++x*2+1; /* e_xy+e_x > 0 or no 2nd y-step */
   } while (x < 0);
+}
+
+// draw an ellipse (http://members.chello.at/easyfilter/bresenham.html)
+function drawEllipseRect(x0, y0, x1, y1, color, draw)
+{
+  let a = Math.abs(x1-x0), b = Math.abs(y1-y0), b1 = b % 2; /* values of diameter */
+  let dx = 4*(1-a)*b*b, dy = 4*(b1+1)*a*a; /* error increment */
+  let err = dx+dy+b1*a*a, e2; /* error of 1.step */
+
+  if (x0 > x1) { x0 = x1; x1 += a; } /* if called with swapped points */
+  if (y0 > y1) y0 = y1; /* .. exchange them */
+  y0 += (b+1)/2; y1 = y0-b1;   /* starting pixel */
+  a *= 8*a; b1 = 8*b*b;
+
+  do {
+    setPixel(x1, y0, color, draw); /*   I. Quadrant */
+    setPixel(x0, y0, color, draw); /*  II. Quadrant */
+    setPixel(x0, y1, color, draw); /* III. Quadrant */
+    setPixel(x1, y1, color, draw); /*  IV. Quadrant */
+    e2 = 2*err;
+    if (e2 <= dy) { y0++; y1--; err += dy += a; }  /* y step */
+    if (e2 >= dx || 2*err > dy) { x0++; x1--; err += dx += b1; } /* x step */
+  } while (x0 <= x1);
+
+  while (y0-y1 < b) {  /* too early stop of flat ellipses a=1 */
+    setPixel(x0-1, y0, color, draw); /* -> finish tip of ellipse */
+    setPixel(x1+1, y0++, color, draw);
+    setPixel(x0-1, y1, color, draw);
+    setPixel(x1+1, y1--, color, draw);
+  }
 }
 
 // serialize image for exporting and emergency save
@@ -549,7 +579,7 @@ var commands = [
     toolbar.icons[0] = toolicons[tool];
     toolbar.draw();
   }],
-  ['D', null, () => { dithering = (dithering + 1) % 3; }],
+  ['D', null, () => { dithering = (dithering + 1) % 2; }],
   ['s',  6, () => {
     restoreBlocks();
     var link = document.createElement('a');
@@ -672,6 +702,7 @@ function touchOrHover(x, y, button)
     if (button === 0) {
       if (dragging) {
         drawCircle(dpx, dpy, px, py, fg, true);
+        // drawEllipseRect(dpx, dpy, px, py, fg, true);
         updateFrontBuffer();
         dragging = false;
       } else {
@@ -683,6 +714,7 @@ function touchOrHover(x, y, button)
       if (dragging) {
         restoreBlocks();
         drawCircle(dpx, dpy, px, py, fg, false);
+        // drawEllipseRect(dpx, dpy, px, py, fg, false);
         updateFrontBuffer();
       } else {
         dpx = px;
