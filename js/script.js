@@ -352,6 +352,22 @@ function drawLine(x0, y0, x1, y1, color, draw) {
   }
 }
 
+// draw a circle
+function drawCircle(xm, ym, xc, yc, color, draw)
+{
+  let r = Math.floor(Math.sqrt((xm-xc)*(xm-xc)+(ym-yc)*(ym-yc)))
+  let x = -r, y = 0, err = 2-2*r; /* II. Quadrant */
+  do {
+    setPixel(xm-x, ym+y, color, draw); /*   I. Quadrant */
+    setPixel(xm-y, ym-x, color, draw); /*  II. Quadrant */
+    setPixel(xm+x, ym-y, color, draw); /* III. Quadrant */
+    setPixel(xm+y, ym+x, color, draw); /*  IV. Quadrant */
+    r = err;
+    if (r <= y) err += ++y*2+1;           /* e_xy+e_y < 0 */
+    if (r > x || err > y) err += ++x*2+1; /* e_xy+e_x > 0 or no 2nd y-step */
+  } while (x < 0);
+}
+
 // serialize image for exporting and emergency save
 function serializeImage()
 {
@@ -529,7 +545,7 @@ function restoreBlocks()
 // toolbar and hotkeys
 var commands = [
   ['d',  0, () => {
-    tool = (tool + 1) % 3;
+    tool = (tool + 1) % 4;
     toolbar.icons[0] = toolicons[tool];
     toolbar.draw();
   }],
@@ -644,6 +660,29 @@ function touchOrHover(x, y, button)
       if (dragging) {
         restoreBlocks();
         drawLine(dpx, dpy, px, py, fg, false);
+        updateFrontBuffer();
+      } else {
+        dpx = px;
+        dpy = py;
+        dragging = true;
+      }
+    }
+  }
+  else if (tool === 3) { // circle
+    if (button === 0) {
+      if (dragging) {
+        drawCircle(dpx, dpy, px, py, fg, true);
+        updateFrontBuffer();
+        dragging = false;
+      } else {
+        restoreBlocks();
+        setPixel(px, py, fg, false);
+        updateFrontBuffer();
+      }
+    } else if (button === 1) {
+      if (dragging) {
+        restoreBlocks();
+        drawCircle(dpx, dpy, px, py, fg, false);
         updateFrontBuffer();
       } else {
         dpx = px;
