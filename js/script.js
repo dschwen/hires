@@ -1029,7 +1029,7 @@ function importImage(img)
   // initialize floyd-steinberg error matrix (if needed)
   var error = null;
   if (dithering === 2)
-    error = new Float32Array(new ArrayBuffer(w * h * 4 * 3)); // 4byte/float32 * rgb
+    error = new Float32Array(new ArrayBuffer(8*8 * 4 * 3)); // 4byte/float32 * rgb
 
   // loop over blocks and color reduce
   var buf;
@@ -1085,13 +1085,13 @@ function importImage(img)
           let d0 = dist[match[0]*64+px];
           let d1 = dist[match[1]*64+px];
 
-          if (dithering === 0 || (dithering === 1 && (d0 > dmatch*dmatch || d1 > dmatch*dmatch))) {
+          if (dithering === 0) {// || (dithering === 1 && (d0 > dmatch*dmatch || d1 > dmatch*dmatch))) {
             // no dithering
             if (d0 < d1)
               bl.pix[y]++;
           } else {
-            // let sd0 = Math.sqrt(d0);
-            // let sd1 = Math.sqrt(d1);
+            let sd0 = Math.sqrt(d0);
+            let sd1 = Math.sqrt(d1);
 
             if (dithering === 1) {
               // random dithering
@@ -1100,23 +1100,20 @@ function importImage(img)
                 bl.pix[y]++;
             } else if (dithering === 2) {
               // floyd-steinberg dithering
-              let cx = bx * 8 + x;
-              let cy = by * 8 + y;
-              let eid = cx * 3 + cy * w * 3;
+              let eid = x * 3 + y * 8 * 3;
 
               // compute diffused rgb errors
               let er = [0, 0, 0];
               for (let c = 0; c < 3; ++c) {
-                if (cy > 0) {
-                  er[c] += 5.0/16.0 * error[eid - w * 3];
-                  if (cx < w-1) er[c] += 3.0/16.0 * error[eid - w * 3 + 3];
-                  if (cx > 0) er[c] += 3.0/16.0 * error[eid - w * 3 - 3];
+                let weight = 0
+                if (y > 0) {
+                  er[c] += 5.0 * error[eid - 24];
+                  weight = 5;
+                  if (x < 7) { er[c] += 3.0 * error[eid - 21]; weight += 3; }
+                  if (x > 0) { er[c] += 3.0 * error[eid - 27]; weight += 3; }
                 }
-                if (cx > 0) er[c] += 7.0/16.0 * error[eid - 3];
-
-                // let erramp = 130;
-                // if (er[c] > erramp) er[c] = erramp;
-                // if (er[c] < -erramp) er[c] = -erramp;
+                if (x > 0) { er[c] += 7.0/16.0 * error[eid - 3]; weight += 7; }
+                if (weight > 0) er[c] /= weight;
               }
 
               // compute distance to fg and bg color
