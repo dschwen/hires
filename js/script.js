@@ -322,11 +322,18 @@ function fillBlock(px, py, color, draw) {
 
 // set a pixel at given coordinates using an block object
 function setPixel(px, py, color, draw) {
+  // ot of bounds 1
+  if (px < 0 || py < 0) return;
+
   var bx = px >> 3, by = py >> 3;
+
+  // out of bounds 2
+  if (bx >= nbx || by >= nby) return;
+
   var index = bx + by * nbx;
   var block;
   if (draw) {
-    block = image[bx + by * nbx];
+    block = image[index];
   } else {
     if (!restore.has(index)) {
       restore.set(index, [bx, by, new Block(image[index])]);
@@ -366,6 +373,17 @@ function drawCircle(xm, ym, xc, yc, color, draw)
     if (r <= y) err += ++y*2+1;           /* e_xy+e_y < 0 */
     if (r > x || err > y) err += ++x*2+1; /* e_xy+e_x > 0 or no 2nd y-step */
   } while (x < 0);
+}
+
+// draw a filled circle
+function drawFilledCircle(xm, ym, xc, yc, color, draw)
+{
+  let r = Math.ceil(Math.sqrt((xm-xc)*(xm-xc)+(ym-yc)*(ym-yc)));
+  for (let y = -r; y <= r; ++y) {
+    let xx = Math.round(Math.sqrt(r*r - y*y));
+    for (let x = -xx; x <= xx; ++x)
+      setPixel(x + xm, y + ym, color, draw);
+  }
 }
 
 // draw an ellipse (http://members.chello.at/easyfilter/bresenham.html)
@@ -585,7 +603,7 @@ var commands = [
     var link = document.createElement('a');
     link.href = backbuffer.toDataURL("image/png");
     link.download = 'untitled.png';
-    link.click();
+    link.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true, view: window}));
   }],
   ['C',  1, () => { saveHistory(); clear(); redraw(); }],
   ['u',  2, () => { undo(); redraw(); }],
@@ -702,6 +720,7 @@ function touchOrHover(x, y, button)
     if (button === 0) {
       if (dragging) {
         drawCircle(dpx, dpy, px, py, fg, true);
+        // drawFilledCircle(dpx, dpy, px, py, fg, true);
         // drawEllipseRect(dpx, dpy, px, py, fg, true);
         updateFrontBuffer();
         dragging = false;
@@ -714,6 +733,7 @@ function touchOrHover(x, y, button)
       if (dragging) {
         restoreBlocks();
         drawCircle(dpx, dpy, px, py, fg, false);
+        // drawFilledCircle(dpx, dpy, px, py, fg, false);
         // drawEllipseRect(dpx, dpy, px, py, fg, false);
         updateFrontBuffer();
       } else {
