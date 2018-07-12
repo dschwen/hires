@@ -311,6 +311,28 @@ function flipHorizontal()
   }
 }
 
+function flipVertical()
+{
+  for (let bx = 0; bx < nbx; ++bx) {
+    // swap blocks
+    for (let by = 0; by < Math.floor(nby/2); ++by) {
+      let tmp = image[bx + by * nbx];
+      image[bx + by * nbx] = image[bx + (nby - 1 - by) * nbx];
+      image[bx + (nby - 1 - by) * nbx] = tmp;
+    }
+
+    // flip bytes in block
+    for (let by = 0; by < nby; ++by) {
+      let p = image[bx + by * nbx].pix;
+      for (let i = 0; i < 4; ++i) {
+        let tmp = p[i];
+        p[i] = p[7-i];
+        p[7-i] = tmp;
+      }
+    }
+  }
+}
+
 // randomize image
 function randomize()
 {
@@ -627,6 +649,12 @@ var commands = [
     restoreBlocks();
     saveHistory();
     flipHorizontal();
+    redraw();
+  }],
+  ['v', null, () => {
+    restoreBlocks();
+    saveHistory();
+    flipVertical();
     redraw();
   }],
   ['s',  6, () => {
