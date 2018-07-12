@@ -286,6 +286,31 @@ function clear()
       image[bx + by * nbx].clear();
 }
 
+function flipHorizontal()
+{
+  for (let by = 0; by < nby; ++by) {
+    // swap blocks
+    for (let bx = 0; bx < Math.floor(nbx/2); ++bx) {
+      let tmp = image[bx + by * nbx];
+      image[bx + by * nbx] = image[(nbx - 1 - bx)  + by * nbx];
+      image[(nbx - 1 - bx)  + by * nbx] = tmp;
+    }
+
+    // flip bits
+    for (let bx = 0; bx < nbx; ++bx) {
+      for (let i = 0; i < 8; ++i) {
+        let b = image[bx + by * nbx].pix[i], c = 0;
+        for (let i = 0; i < 8; ++i) {
+          c <<= 1;
+          c += b & 1;
+          b >>= 1;
+        }
+        image[bx + by * nbx].pix[i] = c;
+      }
+    }
+  }
+}
+
 // randomize image
 function randomize()
 {
@@ -598,6 +623,12 @@ var commands = [
     toolbar.draw();
   }],
   ['D', null, () => { dithering = (dithering + 1) % 2; }],
+  ['h', null, () => {
+    restoreBlocks();
+    saveHistory();
+    flipHorizontal();
+    redraw();
+  }],
   ['s',  6, () => {
     restoreBlocks();
     var link = document.createElement('a');
@@ -605,7 +636,12 @@ var commands = [
     link.download = 'untitled.png';
     link.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true, view: window}));
   }],
-  ['C',  1, () => { saveHistory(); clear(); redraw(); }],
+  ['C',  1, () => {
+    restoreBlocks();
+    saveHistory();
+    clear();
+    redraw();
+  }],
   ['u',  2, () => { undo(); redraw(); }],
   ['U',  7, () => {
     var input = document.createElement('input');
