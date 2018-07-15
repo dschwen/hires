@@ -715,6 +715,7 @@ document.addEventListener('keydown', (e) => {
   for (let i = 0; i < commands.length; ++i)
     if (e.key === commands[i][0]) {
       commands[i][2]();
+      window.localStorage.setItem('current_image', serializeImage());
       return;
     }
 });
@@ -865,6 +866,7 @@ canvas.addEventListener('touchstart', (e) => {
 canvas.addEventListener('touchend', (e) => {
   e.preventDefault();
   e.stopPropagation();
+  window.localStorage.setItem('current_image', serializeImage());
 });
 canvas.addEventListener('mousedown', (e) => {
   saveHistory();
@@ -875,6 +877,7 @@ canvas.addEventListener('mousemove', (e) => {
 });
 document.addEventListener('mouseup', (e) => {
   processMouseEvent(e);
+  window.localStorage.setItem('current_image', serializeImage());
 });
 canvas.addEventListener('contextmenu', function(evt) {
   evt.preventDefault();
@@ -1145,6 +1148,7 @@ toolbar.setHandler((c) => {
   for (let i = 0; i < commands.length; ++i)
     if (c === commands[i][1]) {
       commands[i][2]();
+      window.localStorage.setItem('current_image', serializeImage());
       return;
     }
 });
