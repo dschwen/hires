@@ -18,3 +18,5 @@ Use it at [https://dschwen.github.io/hires/](https://dschwen.github.io/hires/)
 * Horizontal (`h`) and vertical (`v`) flip
 * Image recovers on accidental browser close
 * 8x8 grid
+
+This tool was developed for a pixel art contest for [Stirring Dragon Games](http://www.stirringdragon.games/)' _Unknown Realm_. None of the tools I found ran on my Galaxy Tab A with S-Pen.
