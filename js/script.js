@@ -657,6 +657,14 @@ var commands = [
     flipVertical();
     redraw();
   }],
+  ['H',  5, () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt = undefined;
+      toolbar.deactivated[5] = true;
+      toolbar.draw();
+    }
+  }],
   ['s',  6, () => {
     restoreBlocks();
     var link = document.createElement('a');
@@ -875,6 +883,15 @@ canvas.addEventListener('contextmenu', function(evt) {
 // add system events
 window.addEventListener('beforeunload', (e) => {
   window.localStorage.setItem('current_image', serializeImage());
+});
+
+// add to homescreen code
+let deferredPrompt = undefined;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  toolbar.deactivated[5] = false;
+  toolbar.draw();
 });
 
 // toolbar
