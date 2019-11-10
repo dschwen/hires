@@ -23,7 +23,7 @@ self.addEventListener('fetch', (e) => {
   e.respondWith(
     caches.match(e.request).then((response) => {
       console.log('Response ', response);
-      return response || fetch(event.request);
+      return response || fetch(e.request);
     })
   )
 });

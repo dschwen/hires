@@ -523,7 +523,7 @@ function drawEllipseRect(x0, y0, x1, y1, color, draw)
 function serializeImage()
 {
   var blocks = nbx * nby;
-  var size =  blocks * 9 + 2;
+  var size =  blocks * (1+8+8) + 2;
   buf = new Uint8Array(new ArrayBuffer(size));
   // header (width and height)
   buf[0] = nbx;
@@ -561,7 +561,7 @@ function restoreImage(data)
   }
 
   var blocks = nbx * nby;
-  var size =  blocks * 9 + 2;
+  var size =  blocks * (1+8+8) + 2;
   if (buf.length != size) {
     alert("Corrupt image data");
   }
