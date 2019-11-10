@@ -83,7 +83,7 @@ class Block {
       {
         // bitwise or mask with ~pix
         for (let byte = 0; byte < 8; ++byte)
-          this.mask[byte] |= ~this.pix[byte];
+          this.mask[byte] |= (~this.pix[byte] & 0xff);
         this.bg = color;
       }
     }
@@ -103,14 +103,19 @@ class Block {
     }
 
     // count number of set pixels in the current block
-    var sum = this.pix.reduce((accu, v) => { return accu + Block.bitcount[v]; }, 0);
-    var msum = this.mask.reduce((accu, v) => { return accu + Block.bitcount[v]; }, 0);
-    if (sum == 0) {
+    let fsum = 0, bsum = 0;
+    for (let byte = 0; byte < 8; ++byte)
+    {
+      fsum += Block.bitcount[this.pix[byte] & ~this.mask[byte]];
+      bsum += 8 - Block.bitcount[this.pix[byte] & this.mask[byte]];
+    }
+
+    if (fsum == 0) {
       // block has no pixels set, we are free to reset the foreground color
       this.fg = color;
       this.pix[y] += (1 << (7-x));
     }
-    else if (sum == 64 && this.fg != color) {
+    else if (bsum == 0 && this.fg != color) {
       // block has all pixels set, we are free to reset the background color
       this.bg = color;
       this.pix[y] -= (1 << (7-x));
@@ -119,7 +124,7 @@ class Block {
       // some pixels are set, some are not. Proceed depending on the color change model
       if (minimal_pixel_change) {
         // try to set with recoloring as few pixels as possible
-        if (sum <= 32) {
+        if (fsum < bsum) {
           if (is_set) {
             // change foreground color
             this.fg = color;
@@ -533,6 +538,11 @@ function serializeImage()
     for (let j = 0; j < 8; ++j)
       buf[i*8+j+blocks+2] = image[i].pix[j];
 
+  // serialize mask data
+  for (let i = 0; i < blocks; ++i)
+    for (let j = 0; j < 8; ++j)
+      buf[i*8+j+blocks*9+2] = image[i].mask[j];
+
   return window.btoa(buf);
 }
 
@@ -567,6 +577,11 @@ function restoreImage(data)
   for (let i = 0; i < blocks; ++i)
     for (let j = 0; j < 8; ++j)
       image[i].pix[j] = buf[i*8+j+blocks+2];
+
+  // unserialize mask data
+  for (let i = 0; i < blocks; ++i)
+    for (let j = 0; j < 8; ++j)
+      image[i].mask[j] = buf[i*8+j+blocks*9+2];
 }
 
 // undo data
