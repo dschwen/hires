@@ -1,10 +1,14 @@
 // color mode. If this is true setting a third color will recolor the block so that
 // the smallest number of pixels is changed, otherwise it will recolor all pixels
 // with the same coloer as the pixel underneath the pointer (MultiPaint default))
-var minimal_pixel_change = true;
+var minimal_pixel_change = false;
 
 // import using dithering? (0=none, 1=random, 2=floyd-steinberg)
 var dithering = 0;
+
+// sprite masked 3 color mode
+var sprite_mask = true;
+var mask_color = 0;
 
 // block data
 class Block {
@@ -13,10 +17,12 @@ class Block {
       this.fg = copy.fg;
       this.bg = copy.bg;
       this.pix = Array.apply(null, Array(8)).map((x,i) => {return copy.pix[i];});
+      this.mask = Array.apply(null, Array(8)).map((x,i) => {return copy.mask[i];});
     } else {
       this.fg = 1;
       this.bg = 0;
       this.pix = Array.apply(null, Array(8)).map(() => {return 0;});
+      this.mask = Array.apply(null, Array(8)).map(() => {return 0;});
     }
   }
 
@@ -24,6 +30,7 @@ class Block {
     this.fg = 1;
     this.bg = 0;
     this.pix.fill(0);
+    this.mask.fill(0);
   }
 
   fillBlock(color) {
@@ -35,9 +42,16 @@ class Block {
     this.fg = Math.floor(Math.random() * 16);
     this.bg = Math.floor(Math.random() * 16);
     this.pix = Array.apply(null, Array(8)).map(() => {return Math.floor(Math.random() * 256);});
+    this.mask.fill(0);
   }
 
   getPixel(x, y) {
+    if (sprite_mask)
+    {
+      if (this.mask[y] & (1 << (7-x)))
+        return mask_color;
+    }
+
     var is_set = this.pix[y] & (1 << (7-x));
     if (is_set)
       return this.fg;
@@ -45,6 +59,18 @@ class Block {
   }
 
   setPixel(x, y, color) {
+    if (sprite_mask)
+    {
+      var mask_set = this.mask[y] & (1 << (7-x));
+      if (color == mask_color && !mask_set)
+      {
+        this.mask[y] += (1 << (7-x));
+        return;
+      }
+      if (color != mask_color && mask_set)
+        this.mask[y] -= (1 << (7-x));
+    }
+
     var is_set = this.pix[y] & (1 << (7-x));
 
     // no color change necessary
@@ -229,12 +255,19 @@ function drawBlock(bx, by, block)
   for (let byte = 0; byte < 8; ++byte)
     for (let bit = 7; bit >= 0; --bit)
     {
-      is_set = block.pix[byte] & (1 << bit);
-      if (is_set)
-        col = block.fg;
+      var mask_set = block.mask[byte] & (1 << bit);
+      if (sprite_mask && mask_set)
+      {
+        col = mask_color;
+      }
       else
-        col = block.bg;
-
+      {
+        is_set = block.pix[byte] & (1 << bit);
+        if (is_set)
+          col = block.fg;
+        else
+          col = block.bg;
+      }
       bbuf.data[idx++] = palette[col].red;
       bbuf.data[idx++] = palette[col].green;
       bbuf.data[idx++] = palette[col].blue;
