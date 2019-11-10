@@ -62,13 +62,30 @@ class Block {
     if (sprite_mask)
     {
       var mask_set = this.mask[y] & (1 << (7-x));
-      if (color == mask_color && !mask_set)
+      if (color == mask_color)
       {
-        this.mask[y] += (1 << (7-x));
+        if (!mask_set)
+          this.mask[y] += (1 << (7-x));
         return;
       }
       if (color != mask_color && mask_set)
         this.mask[y] -= (1 << (7-x));
+
+      // fg or bg are the same as the sprite mask. Make them available
+      if (this.fg == mask_color)
+      {
+        // bitwise or mask with pix
+        for (let byte = 0; byte < 8; ++byte)
+          this.mask[byte] |= this.pix[byte];
+        this.fg = color;
+      }
+      else if (this.bg == mask_color)
+      {
+        // bitwise or mask with ~pix
+        for (let byte = 0; byte < 8; ++byte)
+          this.mask[byte] |= ~this.pix[byte];
+        this.bg = color;
+      }
     }
 
     var is_set = this.pix[y] & (1 << (7-x));
@@ -87,6 +104,7 @@ class Block {
 
     // count number of set pixels in the current block
     var sum = this.pix.reduce((accu, v) => { return accu + Block.bitcount[v]; }, 0);
+    var msum = this.mask.reduce((accu, v) => { return accu + Block.bitcount[v]; }, 0);
     if (sum == 0) {
       // block has no pixels set, we are free to reset the foreground color
       this.fg = color;
