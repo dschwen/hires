@@ -7,7 +7,7 @@ var minimal_pixel_change = false;
 var dithering = 0;
 
 // sprite masked 3 color mode
-var sprite_mask = true;
+var sprite_mask = false;
 var mask_color = 0;
 
 // block data
@@ -1412,20 +1412,55 @@ function fileUploadHandler(e, targetFiles) {
   }
 
   var file = files[0];
-  if (!file.type.match('image.*')) {
-    alert("Drop an image file for importing.");
+  console.log(file);
+
+  // Hi-Eddi C64 file
+  if (file.name.match('.*\.pic$') && confirm("Import as Hi-Eddi file?")) {
+    saveHistory();
+    var reader = new FileReader();
+    reader.onload = (e) => {
+      const view = new Int8Array(e.target.result);
+      // loop over blocks and raster it
+      for (let b = 0; b < 40*25; ++b)
+      {
+        let bl = image[b];
+
+        // pixels
+        for (let y = 0; y < 8; ++y) {
+          bl.pix[y] = view[2+b*8+y];
+        }
+
+        if (view.length >= (2+9*25*40)) {
+          // color
+          bl.fg = view[2+0x2000+b] % 16;
+          bl.bg = Math.floor(view[2+0x2000+b] / 16);
+        } else {
+          // monochrome
+          bl.fg = 1;
+          bl.bg = 0;
+        }
+      }
+      redraw();
+    };
+    reader.readAsArrayBuffer(file);
     return;
   }
 
-  var img = new Image();
-  img.onload = () => {
-    saveHistory();
-    importImage(img);
-  };
+  // Modern image file
+  if (file.type.match('image.*')) {
+    var img = new Image();
+    img.onload = () => {
+      saveHistory();
+      importImage(img);
+    };
 
-  var reader = new FileReader();
-  reader.onload = (e) => { img.src = e.target.result; };
-  reader.readAsDataURL(file);
+    var reader = new FileReader();
+    reader.onload = (e) => { img.src = e.target.result; };
+    reader.readAsDataURL(file);
+    return;
+  }
+
+  alert("Select a supported image file. E.g. .jpg, .png, .hed")
 }
 
 // Setup the dnd listeners.
